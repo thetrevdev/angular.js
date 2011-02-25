@@ -26,6 +26,18 @@ describe('$cacheFactory', function() {
   });
 
 
+  it('should provide stats about all created caches', function() {
+    expect($cacheFactory.stats()).toEqual({});
+
+    var cache1 = $cacheFactory('cache1');
+    expect($cacheFactory.stats()).toEqual({cache1: {size: 0}});
+
+    cache1.put('foo', 'bar');
+    expect($cacheFactory.stats()).toEqual({cache1: {size: 1}});
+  });
+
+
+
   describe('cache', function() {
     var cache;
 

@@ -8,25 +8,24 @@
  *
  */
 angularServiceInject("$cacheFactory", function() {
-  var usedIds = {};
+  var caches = {};
 
-  return function(cacheId) {
-    if (cacheId in usedIds) {
+  function cacheFactory(cacheId) {
+    if (cacheId in caches) {
       throw Error('cacheId ' + cacheId + ' taken');
     }
-    usedIds[cacheId] = '';
 
-    var size = 0,
+    var stats = caches[cacheId] = {size:0},
         data = {};
 
     return {
-      id: function() { return cacheId },
+      id: function() { return cacheId; },
 
-      size: function() { return size; },
+      size: function() { return stats.size; },
 
       put: function(key, value) {
         if (isUndefined(value)) return;
-        if (!(key in data)) size++;
+        if (!(key in data)) stats.size++;
         data[key] = value;
       },
 
@@ -36,8 +35,14 @@ angularServiceInject("$cacheFactory", function() {
 
       remove: function(key) {
         delete data[key];
-        size--;
+        stats.size--;
       }
     };
   }
+
+  cacheFactory.stats = function() {
+    return copy(caches);
+  }
+
+  return cacheFactory;
 });
