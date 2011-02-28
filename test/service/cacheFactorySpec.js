@@ -121,5 +121,23 @@ describe('$cacheFactory', function() {
         expect(cache.id()).toBe('test');
       })
     });
+
+
+    describe('removeAll', function() {
+
+      it('should blow away all data', function() {
+        cache.put('id1', 1);
+        cache.put('id2', 2);
+        cache.put('id3', 3);
+        expect(cache.size()).toBe(3);
+
+        cache.removeAll();
+
+        expect(cache.size()).toBe(0);
+        expect(cache.get('id1')).toBeUndefined();
+        expect(cache.get('id2')).toBeUndefined();
+        expect(cache.get('id3')).toBeUndefined();
+      });
+    });
   });
 });

@@ -36,6 +36,11 @@ angularServiceInject("$cacheFactory", function() {
       remove: function(key) {
         delete data[key];
         stats.size--;
+      },
+
+      removeAll: function(key) {
+        data = {};
+        stats.size = 0;
       }
     };
   }

@@ -25,6 +25,7 @@ ANGULAR = [
   'src/service/invalidWidgets.js',
   'src/service/location.js',
   'src/service/log.js',
+  'src/service/lruCacheFactory.js',
   'src/service/resource.js',
   'src/service/route.js',
   'src/service/updateView.js',
