@@ -132,6 +132,7 @@
              'service/lruCacheFactory.js',
              'service/resource.js',
              'service/route.js',
+             'service/time.js',
              'service/updateView.js',
              'service/window.js',
              'service/xhr.bulk.js',

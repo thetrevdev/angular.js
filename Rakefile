@@ -28,6 +28,7 @@ ANGULAR = [
   'src/service/lruCacheFactory.js',
   'src/service/resource.js',
   'src/service/route.js',
+  'src/service/time.js',
   'src/service/updateView.js',
   'src/service/window.js',
   'src/service/xhr.bulk.js',

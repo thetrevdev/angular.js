@@ -259,6 +259,28 @@ function MockLogFactory() {
 }
 
 
+angular.service('$time', mockTimeFactory);
+
+function mockTimeFactory() {
+  var now = new Date().getTime();
+
+
+  function time() {
+    return now;
+  }
+
+  time.set = function(timestamp) {
+    now = timestamp;
+  }
+
+  time.add = function(millis) {
+    now += millis;
+  }
+
+  return time;
+}
+
+
 /**
  * Mock of the Date type which has its timezone specified via constroctor arg.
  *
