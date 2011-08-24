@@ -294,7 +294,7 @@ Compiler.prototype = {
 function eachNode(element, fn){
   var i, chldNodes = element[0].childNodes || [], chld;
   for (i = 0; i < chldNodes.length; i++) {
-    if(!isTextNode(chld = chldNodes[i])) {
+    if(!isTextNode(chld = chldNodes[i]) && nodeName_(chld) !== 'SCRIPT') {
       fn(jqLite(chld), i);
     }
   }

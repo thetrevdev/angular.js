@@ -155,6 +155,22 @@ angularServiceInject('$cacheFactory', function() {
  * TODO(vojta): configuration
  * TODO(vojta): extract into separate file ?
  */
-angularServiceInject('$tplCache', function($cacheFactory) {
-  return $cacheFactory('templates');
-}, ['$cacheFactory']);
+angularServiceInject('$tplCache', function($cacheFactory, $document) {
+  var cache = $cacheFactory('templates');
+
+  return inherit(cache, {
+    get: function(key) {
+      var template = cache.get(key);
+
+      if (template) return template;
+
+      var templateEl = $document.find('#' + key);
+      if (templateEl && templateEl.attr('type') == 'text/ng-template') {
+        template = templateEl.text();
+        cache.put(key, template);
+        templateEl.remove();
+        return template;
+      }
+    }
+  });
+}, ['$cacheFactory', '$document']);

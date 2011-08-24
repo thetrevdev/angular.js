@@ -5,10 +5,14 @@
     <script src="../src/angular-bootstrap.js" ng:autobind></script>
     <script>
     angular.service('routeConfig', function($route) {
-          $route.when('/view1', {controller: MyCtrl, template: 'view1.html'});
-          $route.when('/view2', {controller: MyCtrl, template: 'view2.html'});
+          $route.when('/view1', {controller: MyCtrl, template: 'inlinedView1.html'});
+          $route.when('/view2', {controller: MyCtrl, template: 'inlinedView2.html'});
 
-          function MyCtrl() {};
+          this.greeting = 'Root Hello!';
+
+          function MyCtrl() {
+            this.greeting = 'MyCtrl Hello!';
+          };
         }, {$inject: ['$route'], $eager: true});
     </script>
   </head>
@@ -18,5 +22,25 @@
     </p>
 
     view: <ng:view></ng:view>
+    <hr>
+    include: <ng:include src="'inlinedView1.html'"></ng:include>
+    <hr>
+    nested include: <ng:include src="'nestedView.html'"></ng:include>
+
+    <script type="text/ng-template" id="inlinedView1.html">
+      inlinedView1.html (greeting: {{greeting}})
+    </script>
+
+    <script type="text/ng-template" id="inlinedView2.html">
+      inlinedView2.html (greeting: {{greeting}})
+    </script>
+
+    <script type="text/ng-template" id="nestedView.html">
+      I'm nesting includedView.html: <ng:include src="'includedView.html'"></ng:include>
+    </script>
+
+    <script type="text/ng-template" id="includedView.html">
+      I'm being included! (greeting: {{greeting}});
+    </script>
   </body>
 </html>

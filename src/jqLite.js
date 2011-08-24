@@ -451,6 +451,9 @@ forEach({
   },
 
   find: function(element, selector) {
+    if (selector.charAt(0) === '#') {
+      return element.getElementById(selector.substring(1));
+    }
     return element.getElementsByTagName(selector);
   },
 
