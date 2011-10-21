@@ -543,6 +543,7 @@ describe("widget", function() {
             'include: <ng:include src="\'includePartial.html\'">' +
           '</ng:include></div>')(rootScope);
 
+      rootScope.$digest();
       $httpBackend.flush();
       expect(rootScope.$element.text()).toEqual('include: view: ');
 
