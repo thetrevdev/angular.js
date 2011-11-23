@@ -2,4 +2,61 @@
 @name angular.module.ng
 @description
 
-The `ng` is an angular module which contains all of the core angular services.
+Directives are a way to teach HTML new tricks. During the compilation directives are matched
+against the HTML and executed, allowing them to register behavior, or transform the HTML into a
+desired effect.
+
+Angular comes with a built in set of directives which are useful for building web applications
+but can be extended such that HTML can be turned into a declarative DSL (domain specific language).
+
+# Invoking directives from HTML
+
+Directives have camel cased names such as 'ngBind'. The directive can be invoked by translating it
+into snake case with these special characters `:`, `-`, or `_`. Optionally the directive can be
+prefixed with `x-`, `data-`, or `x-data` to make it validator compliant. Here is a list of some
+of the possible directive names: `ng:bind`, `ng-bind`, `ng_bind`, `x-ng-bind` and `data-ng-bind`.
+
+The directives can be placed in element names, attributes, class names, as well as comments. Here
+are some equivalent examples of invoking `ngBind`.
+
+<pre>
+  <span ng-bind="exp"></span>
+  <span class="ng-bind: exp;"></span>
+  <ng-bind></ng-bind>
+  <!-- directive: ng-bind exp --!>
+</pre>
+
+Directives can be invoked in many different ways in angular, but are equivalent in the end result
+as shown in the following example.
+
+<doc:example>
+  <doc:source >
+   <script>
+     function Ctrl() {
+       this.name = 'angular';
+     }
+   </script>
+   <div ng-controller="Ctrl">
+     Hello <input ng-model='name'> <hr/>
+     &ltspan ng:bind="name"&gt <span ng:bind="name"></span> <br/>
+     &ltspan ng_bind="name"&gt <span ng_bind="name"></span> <br/>
+     &ltspan ng-bind="name"&gt <span ng-bind="name"></span> <br/>
+     &ltspan data-ng-bind="name"&gt <span data-ng-bind="name"></span> <br/>
+     &ltspan x-ng-bind="name"&gt <span x-ng-bind="name"></span> <br/>
+     &ltspan class="ng-bind: name;"&gt <span class="ng-bind: name;"></span> <br/>
+   </div>
+  </doc:source>
+  <doc:scenario>
+    it('should load template1.html', function() {
+      expect(element('div[ng-controller="Ctrl"] span').text()).toBe('angular');
+    });
+  </doc:scenario>
+</doc:example>
+
+# String interpolation
+
+# Compilation process, and directive matching
+
+# Writing directives (short version)
+
+# Writing directives (long version)

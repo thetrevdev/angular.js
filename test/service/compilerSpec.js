@@ -2,9 +2,8 @@
 
 describe('$compile', function() {
   var element;
-  beforeEach(inject(function($provide){
+  beforeEach(inject(function(){
     element = null;
-    $provide.service('$compile', $Compile2Provider);
   }));
 
   afterEach(function(){
@@ -466,7 +465,7 @@ describe('$compile', function() {
 
 
     it('should allow creation of new scopes', inject(function($rootScope, $compile) {
-      $compile('<div><span scope-a><a log></a></span></div>')($rootScope);
+      element = $compile('<div><span scope-a><a log></a></span></div>')($rootScope);
       expect(log).toEqual('log-002;002;');
     }));
 
