@@ -108,7 +108,7 @@ function getStyle(element) {
  * @param name name to normalize
  */
 var SPECIAL_CHARS_REGEXP = /([\:\-]+(.))/g;
-var PREFIX_REGEXP = /^(x[\:\-]data[\:\-]|x[\:\-]|data[\:\-])/;
+var PREFIX_REGEXP = /^(x[\:\-]data[\:\-]|x[\:\-]|data[\:\-])/i;
 var MOZ_HACK_REGEXP = /^moz([A-Z])/;
 function camelCase(name) {
   return name.
@@ -398,14 +398,14 @@ forEach({
   text: extend((msie < 9)
       ? function(element, value) {
         // NodeType == 3 is text node
-        if (element.nodeType == 3) {
-          if (isUndefined(value))
-            return element.nodeValue;
-          element.nodeValue = value;
-        } else {
+        if (element.nodeType == 1) {
           if (isUndefined(value))
             return element.innerText;
           element.innerText = value;
+        } else {
+          if (isUndefined(value))
+            return element.nodeValue;
+          element.nodeValue = value;
         }
       }
       : function(element, value) {

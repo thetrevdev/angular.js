@@ -112,51 +112,42 @@
       </doc:source>
       <doc:scenario>
          it('should check ng:options', function() {
-           expect(binding('color')).toMatch('red');
+           expect(binding('{selected_color:color}')).toMatch('red');
            select('color').option('0');
-           expect(binding('color')).toMatch('black');
+           expect(binding('{selected_color:color}')).toMatch('black');
            using('.nullable').select('color').option('');
-           expect(binding('color')).toMatch('null');
+           expect(binding('{selected_color:color}')).toMatch('null');
          });
       </doc:scenario>
     </doc:example>
  */
 
+var ngOptionsDirective = valueFn({ terminal: true });
+var selectDirective = ['$formFactory', '$compile', '$parse',
+               function($formFactory,   $compile,   $parse){
+                         //00001111100000000000222200000000000000000000003333000000000000044444444444444444000000000555555555555555550000000666666666666666660000000000000007777
+  var NG_OPTIONS_REGEXP = /^\s*(.*?)(?:\s+as\s+(.*?))?(?:\s+group\s+by\s+(.*))?\s+for\s+(?:([\$\w][\$\w\d]*)|(?:\(\s*([\$\w][\$\w\d]*)\s*,\s*([\$\w][\$\w\d]*)\s*\)))\s+in\s+(.*)$/;
 
-                       //00001111100000000000222200000000000000000000003333000000000000044444444444444444000000000555555555555555550000000666666666666666660000000000000007777
-var NG_OPTIONS_REGEXP = /^\s*(.*?)(?:\s+as\s+(.*?))?(?:\s+group\s+by\s+(.*))?\s+for\s+(?:([\$\w][\$\w\d]*)|(?:\(\s*([\$\w][\$\w\d]*)\s*,\s*([\$\w][\$\w\d]*)\s*\)))\s+in\s+(.*)$/;
-
-
-angularWidget('select', function(element){
-  this.directives(true);
-  this.descend(true);
-  return element.attr('ng:model') &&
-               ['$formFactory', '$compile', '$parse', '$element',
-        function($formFactory,   $compile,   $parse,   selectElement){
-    var modelScope = this,
-        match,
-        form = $formFactory.forElement(selectElement),
-        multiple = selectElement.attr('multiple'),
-        optionsExp = selectElement.attr('ng:options'),
-        modelExp = selectElement.attr('ng:model'),
+  return function(modelScope, selectElement, attr) {
+    if (nodeName_(selectElement) != 'SELECT' || !attr.ngModel) return;
+    var form = $formFactory.forElement(selectElement),
+        multiple = attr.multiple,
+        optionsExp = attr.ngOptions,
+        modelExp = attr.ngModel,
         widget = form.$createWidget({
-          scope: this,
+          scope: modelScope,
           model: modelExp,
-          onChange: selectElement.attr('ng:change'),
-          alias: selectElement.attr('name'),
+          onChange: attr.ngChange,
+          alias: attr.name,
           controller: optionsExp ? Options : (multiple ? Multiple : Single)});
 
     selectElement.bind('$destroy', function() { widget.$destroy(); });
 
     widget.$pristine = !(widget.$dirty = false);
 
-    watchElementProperty(modelScope, widget, 'required', selectElement);
-    watchElementProperty(modelScope, widget, 'readonly', selectElement);
-    watchElementProperty(modelScope, widget, 'disabled', selectElement);
-
     widget.$on('$validate', function() {
-      var valid = !widget.$required || !!widget.$modelValue;
-      if (valid && multiple && widget.$required) valid = !!widget.$modelValue.length;
+      var valid = !attr.required || !!widget.$modelValue;
+      if (valid && multiple && attr.required) valid = !!widget.$modelValue.length;
       if (valid !== !widget.$error.REQUIRED) {
         widget.$emit(valid ? '$valid' : '$invalid', 'REQUIRED');
       }
@@ -434,5 +425,25 @@ angularWidget('select', function(element){
         }
       };
     }
-  }];
-});
+  }
+}];
+
+var optionDirective = ['$interpolate', function($interpolate) {
+  return {
+    priority: 100,
+    templateFn: function(element, attr) {
+      if (nodeName_(element) == 'OPTION' && isUndefined(attr.value)) {
+        var interpolateFn = $interpolate(element.text(), true);
+        if (interpolateFn) {
+          return function (scope, element, attr) {
+            scope.$watch(interpolateFn, function(scope, value) {
+              attr.$set('value', value);
+            });
+          }
+        } else {
+          attr.$set('value', element.text());
+        }
+      }
+    }
+  }
+}];

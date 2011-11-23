@@ -91,14 +91,6 @@ var $$scope           = '$scope',
     /** @name angular */
     angular           = window.angular || (window.angular = {}),
     angularModule     = angular.module || (angular.module  = {}),
-    /** @name angular.markup */
-    angularTextMarkup = extensionMap(angular, 'markup'),
-    /** @name angular.attrMarkup */
-    angularAttrMarkup = extensionMap(angular, 'attrMarkup'),
-    /** @name angular.directive */
-    angularDirective  = extensionMap(angular, 'directive', lowercase),
-    /** @name angular.widget */
-    angularWidget     = extensionMap(angular, 'widget', shivForIE),
     /** @name angular.module.ng */
     angularInputType  = extensionMap(angular, 'inputType', lowercase),
     nodeName_,
@@ -874,6 +866,13 @@ function bootstrap(element, modules) {
   );
 }
 
+var SNAKE_CASE_REGEXP = /[A-Z]/g;
+function snake_case(name){
+  return name.replace(SNAKE_CASE_REGEXP, function(letter, pos) {
+    return (pos ? '_' : '') + letter.toLowerCase();
+  });
+};
+
 function angularJsConfig(document) {
   bindJQuery();
   var scripts = document.getElementsByTagName('script'),
@@ -885,9 +884,11 @@ function angularJsConfig(document) {
   hashPos = scriptSrc.indexOf('#');
   if (hashPos != -1) extend(config, parseKeyValue(scriptSrc.substr(hashPos+1)));
 
-  eachAttribute(jqLite(script), function(value, name){
-    if (/^ng:/.exec(name)) {
-      name = name.substring(3).replace(/-/g, '_');
+  forEach(script.attributes, function(attr){
+    var name = snake_case(camelCase(attr.name)),
+        value = attr.value;
+    if (name.substr(0,3) == 'ng_') {
+      name = camelCase(name.substring(3));
       value = value || true;
       config[name] = value;
     }
