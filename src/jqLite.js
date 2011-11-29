@@ -98,12 +98,25 @@ function getStyle(element) {
 
 
 /**
- * Converts dash-separated names to camelCase. Useful for dealing with css properties.
+ * convert all accepted dirctive format into proper directive name.
+ * All of these will become 'my:directive':
+ *   my:DiRective
+ *   my-directive
+ *   x-my-directive
+ *   data-my:directive
+ *   x-data-my:directive
+ * @param name name to normalize
  */
+var SPECIAL_CHARS_REGEXP = /([\:\-]+(.))/g;
+var PREFIX_REGEXP = /^(x[\:\-]data[\:\-]|x[\:\-]|data[\:\-])/;
+var MOZ_HACK_REGEXP = /^moz([A-Z])/;
 function camelCase(name) {
-  return name.replace(/\-(\w)/g, function(all, letter, offset){
-    return (offset == 0 && letter == 'w') ? 'w' : letter.toUpperCase();
-  });
+  return name.
+    replace(PREFIX_REGEXP, '').
+    replace(SPECIAL_CHARS_REGEXP, function(_, separator, letter, offset) {
+      return offset ? letter.toUpperCase() : letter;
+    }).
+    replace(MOZ_HACK_REGEXP, 'Moz$1');
 }
 
 /////////////////////////////////////////////

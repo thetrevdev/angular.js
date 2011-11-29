@@ -556,4 +556,11 @@ describe('angular', function() {
       dealoc(element);
     });
   });
+
+
+  describe('elementOnlyHTML', function(){
+    it('should show starting element tag only', function(){
+      expect(elementOnlyHTML('<ng:abc x="2"><div>text</div></ng:abc>')).toEqual('<ng:abc x="2">');
+    });
+  });
 });

@@ -737,6 +737,15 @@ function toBoolean(value) {
   return value;
 }
 
+/**
+ * Show the starting element string only. (for debugging)
+ * @param node
+ */
+function elementOnlyHTML(node) {
+  node = jqLite(node).clone().html('');
+  return jqLite('<div>').append(node).html().replace(/\<\/[\w\:\-]+\>$/, '');
+}
+
 
 /////////////////////////////////////////////////
 
