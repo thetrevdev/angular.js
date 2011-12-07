@@ -93,7 +93,6 @@ function publishExternalAPI(angular){
             select: selectDirective,
             ngOptions: ngOptionsDirective,
             option: optionDirective,
-            ngSubmit: ngSubmitDirective,
             script: scriptTemplateLoader
           }).
         directive(ngEventDirectives).
