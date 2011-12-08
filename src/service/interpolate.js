@@ -1,82 +1,128 @@
 'use strict';
 
-function $InterpolateProvider(){
-  this.$get = ['$parse', function($parse){
+/**
+ * @ngdoc function
+ * @name angular.module.ng.$interpolateProvider
+ * @function
+ *
+ * @description
+ *
+ * Used for configuring the interpolation markup. Initially set to `{{` and `}}`.
+ */
+
+/**
+ * @ngdoc property
+ * @name angular.module.ng.$interpolateProvider#startSymbol
+ * @propertyOf angular.module.ng.$interpolateProvider
+ *
+ * @description
+ * Symbol to denote start of expression in the interpolated string. Initially `{{`.
+ */
+
+/**
+ * @ngdoc property
+ * @name angular.module.ng.$interpolateProvider#endSymbol
+ * @propertyOf angular.module.ng.$interpolateProvider
+ *
+ * @description
+* Symbol to denote the end of expression in the interpolated string. Initially `}}`.
+ */
+
+
+/**
+ * @ngdoc function
+ * @name angular.module.ng.$interpolate
+ * @function
+ *
+ * @requires $parse
+ *
+ * @description
+ *
+ * Compiles a string with markup into an interpolation function. This service is used by the
+ * HTTML {@link angular.module.ng.$compile $compile} service for data binding. See
+ * {@link angular.module.ng.$interpolateProvider $interpolateProvider} for configuring the
+ * interpolation markup.
+ *
+ *
+   <pre>
+    angular.injector('ng').invoke(null, function($interpolate) {
+      var exp = $interpolate('Hello {{name}}!');
+      expect(exp({name:'Angular'}).toEqual('Hello Angular!');
+    });
+   </pre>
+ *
+ *
+ * @param {string} text The text with markup to interpolate.
+ * @returns {function(context)} an interpolation function which is used to compute the interpolated
+ *    string. The function has these parameters:
+ *
+ *    * `context`: an object against which any expressions embedded in the strings are evaluated
+ *      against.
+ *
+ */
+function $InterpolateProvider() {
+  this.startSymbol = '{{';
+  this.endSymbol = '}}';
+
+  this.$get = ['$parse', function($parse) {
+    var startSymbol = this.startSymbol,
+        startSymbolLength = startSymbol.length,
+        endSymbol = this.endSymbol,
+        endSymbolLength = endSymbol.length;
+
     return function(text, templateOnly) {
-      var bindings = parseBindings(text);
-      if (hasBindings(bindings) || !templateOnly) {
-        return compileBindTemplate(text);
+      var startIndex,
+          endIndex,
+          index = 0,
+          parts = [],
+          length = text.length,
+          hasInterpolation = false,
+          fn,
+          exp,
+          concat = [];
+
+      while(index < length) {
+        if ( ((startIndex = text.indexOf(startSymbol, index)) != -1) &&
+             ((endIndex = text.indexOf(endSymbol, startIndex + startSymbolLength)) != -1) ) {
+          (index != startIndex) && parts.push(text.substring(index, startIndex));
+          parts.push(fn = $parse(exp = text.substring(startIndex + startSymbolLength, endIndex)));
+          fn.exp = exp;
+          index = endIndex + endSymbolLength;
+          hasInterpolation = true;
+        } else {
+          // we did not find anything, so we have to add the remainder to the parts array
+          (index != length) && parts.push(text.substring(index));
+          index = length;
+        }
+      }
+
+      if (!(length = parts.length)) {
+        // we added, nothing, must have been an empty string.
+        parts.push('');
+        length = 1;
+      }
+
+      if (!templateOnly  || hasInterpolation) {
+        concat.length = length;
+        fn = function(context) {
+          for(var i = 0, ii = length, part; i<ii; i++) {
+            if (typeof (part = parts[i]) == 'function') {
+              part = part(context);
+              if (part == null || part == undefined) {
+                part = '';
+              } else if (typeof part != 'string') {
+                part = toJson(part);
+              }
+            }
+            concat[i] = part;
+          }
+          return concat.join('');
+        };
+        fn.exp = text;
+        fn.parts = parts;
+        return fn;
       }
     };
   }];
 }
 
-var bindTemplateCache = {};
-function compileBindTemplate(template){
-  var fn = bindTemplateCache[template];
-  if (!fn) {
-    var bindings = [];
-    forEach(parseBindings(template), function(text){
-      var exp = binding(text);
-      bindings.push(exp
-        ? function(scope, element) { return scope.$eval(exp); }
-        : function() { return text; });
-    });
-    bindTemplateCache[template] = fn = function(scope, element, prettyPrintJson) {
-      var parts = [],
-          hadOwnElement = scope.hasOwnProperty('$element'),
-          oldElement = scope.$element;
-
-      // TODO(misko): get rid of $element
-      scope.$element = element;
-      try {
-        for (var i = 0; i < bindings.length; i++) {
-          var value = bindings[i](scope, element);
-          if (isElement(value))
-            value = '';
-          else if (isObject(value))
-            value = toJson(value, prettyPrintJson);
-          parts.push(value);
-        }
-        return parts.join('');
-      } finally {
-        if (hadOwnElement) {
-          scope.$element = oldElement;
-        } else {
-          delete scope.$element;
-        }
-      }
-    };
-  }
-  return fn;
-}
-
-
-function parseBindings(string) {
-  var results = [];
-  var lastIndex = 0;
-  var index;
-  while((index = string.indexOf('{{', lastIndex)) > -1) {
-    if (lastIndex < index)
-      results.push(string.substr(lastIndex, index - lastIndex));
-    lastIndex = index;
-
-    index = string.indexOf('}}', index);
-    index = index < 0 ? string.length : index + 2;
-
-    results.push(string.substr(lastIndex, index - lastIndex));
-    lastIndex = index;
-  }
-  if (lastIndex != string.length)
-    results.push(string.substr(lastIndex, string.length - lastIndex));
-  return results.length === 0 ? [ string ] : results;
-}
-
-function binding(string) {
-  var binding = string.replace(/\n/gm, ' ').match(/^\{\{(.*)\}\}$/);
-  return binding ? binding[1] : null;
-}
-
-function hasBindings(bindings) {
-  return bindings.length > 1 || binding(bindings[0]) !== null;
-}
