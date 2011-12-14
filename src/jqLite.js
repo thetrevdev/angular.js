@@ -550,6 +550,10 @@ forEach({
     return children;
   },
 
+  contents: function(element) {
+    return element.childNodes;
+  },
+
   append: function(element, node) {
     forEach(new JQLite(node), function(child){
       if (element.nodeType === 1)
