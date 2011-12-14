@@ -330,7 +330,8 @@ describe('$compile', function() {
       template($rootScope);
     }));
 
-    it('should compile from top to bottom but link from bottom up', inject(function($compile, $rootScope) {
+    it('should compile from top to bottom but link from bottom up', inject(
+        function($compile, $rootScope) {
       $compile('<a b><c></c></a>')($rootScope);
       expect(log).toEqual('tA;tB;tC;preA;preB;preC;postC;postA;postB;');
     }));
@@ -364,8 +365,7 @@ describe('$compile', function() {
       expect(log).toEqual('log-002;002;');
     }));
 
-    it('should not allow more then one scope creation per element', inject(
-        function($rootScope, $compile) {
+    it('should not allow more then one scope creation per element', inject(function($compile) {
       expect(function(){
         $compile('<div class="scope-a; scope-b"></div>');
       }).toThrow('Multiple directives [scopeA, scopeB] asking for new scope on: ' +

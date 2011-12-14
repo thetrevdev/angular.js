@@ -210,11 +210,11 @@ function $CompileProvider($injector) {
      * @param templateNode
      * @returns linkingFn
      */
-    function applyDirectivesPerElement(linkFns, directives, templateNode, templateAttrs) {
+    function applyDirectivesPerElement(directives, templateNode, templateAttrs) {
       directives.sort(byPriority);
       var terminalPriority = -Number.MAX_VALUE;
 
-      // executes all directives at a given element
+      // executes all directives on the current element
       for(var i = 0, ii = directives.length,
             linkingFns = [], directive,
             newScopeDirective = null,
@@ -225,17 +225,22 @@ function $CompileProvider($injector) {
             if (newScopeDirective) {
               throw Error('Multiple directives [' + newScopeDirective.name + ', ' +
                 directive.name + '] asking for new scope on: ' +
-                elementOnlyHTML(templateAttrs.$element));
+                elementOnlyHTML(element));
             }
             newScopeDirective = directive;
           }
+
           if (terminalPriority > directive.priority) {
             break; // prevent further processing of directives
           }
-          directive.templateFn && linkingFns.push(directive.templateFn(element, templateAttrs));
+
+          if (directive.templateFn) {
+            linkingFns.push(directive.templateFn(element, templateAttrs));
+          }
         } catch (e) {
           $exceptionHandler(e);
         }
+
         if (directive.terminal) {
           linkFn.terminal = true;
           terminalPriority = Math.max(terminalPriority, directive.priority);
@@ -247,8 +252,10 @@ function $CompileProvider($injector) {
       
       ////////////////////
 
+
       function linkFn(childLinkingFn, scope, linkNode) {
         var attrs, element, ii = linkingFns.length, linkingFn, i;
+
         if (templateNode === linkNode) {
           attrs = templateAttrs;
           element = attrs.$element;
@@ -281,7 +288,8 @@ function $CompileProvider($injector) {
 
         // POSTLINKING
         for(i = 0; i < ii; i++) {
-          if (typeof (linkingFn = linkingFns[i]) == 'object') {
+          linkingFn = linkingFns[i];
+          if (typeof linkingFn == 'object') {
             linkingFn = linkingFn.post;
           }
           if (linkingFn) {
@@ -293,8 +301,9 @@ function $CompileProvider($injector) {
           }
         }
         return scope;
-      };
+      }
     }
+
 
     function textInterpolateDirective(interpolateFn) {
       return {
@@ -310,6 +319,7 @@ function $CompileProvider($injector) {
         })
       };
     }
+
 
     function attrInterpolateDirective(value, name) {
       var interpolateFn = $interpolate(value, true);
@@ -338,6 +348,7 @@ function $CompileProvider($injector) {
       };
     }
 
+
     /**
      * Compile function matches the nodeList against the directives, and then executes the
      * directive template function.
@@ -356,8 +367,6 @@ function $CompileProvider($injector) {
             childLinkingFn = null,
             directives = [],
             directive,
-            expName = undefined,
-            expValue = undefined,
             attrsMap = {},
             attrs = {
               $attr: attrsMap,
@@ -369,7 +378,7 @@ function $CompileProvider($injector) {
         switch(nodeType) {
           case 1: /* Element */
             // use the node name: <directive>
-            if (directive = getDirective(camelCase(nodeName_(node).toLowerCase()))) {
+            if ((directive = getDirective(camelCase(nodeName_(node).toLowerCase())))) {
               directives.push(directive);
             }
 
@@ -377,53 +386,58 @@ function $CompileProvider($injector) {
             for (var attr, name, nName, value, nAttrs = node.attributes,
                      j = 0, jj = nAttrs && nAttrs.length; j < jj; j++) {
               attr = nAttrs[j];
-              nName = camelCase((name = attr.name).toLowerCase());
+              name = attr.name;
+              nName = camelCase(name.toLowerCase());
               attrsMap[nName] = name;
               attrs[nName] = value = trim((msie && name == 'href')
                   ? decodeURIComponent(node.getAttribute(name, 2))
                   : attr.value);
               if (BOOLEAN_ATTR[nName]) {
                 attrs[nName] = true; // presence means true
-              } else if (nName == 'exp') {
-                expName = name;
-                expValue = value;
               }
-              if (directive = attrInterpolateDirective(value, nName)) {
+
+              if ((directive = attrInterpolateDirective(value, nName))) {
                 directives.push(directive);
               }
-              if (directive = getDirective(nName)) {
+              if ((directive = getDirective(nName))) {
                 directives.push(directive);
               }
             }
 
             // use class as directive
             text = node.className;
-            while (match = CLASS_DIRECTIVE_REGEXP.exec(text)) {
-              if (directive = getDirective(nName = camelCase(match[2]))) {
+            while ((match = CLASS_DIRECTIVE_REGEXP.exec(text))) {
+              nName = camelCase(match[2]);
+              directive = getDirective(nName);
+              if (directive) {
                 attrs[nName] = trim(match[3]);
                 directives.push(directive);
               }
               text = text.substr(match.index + match[0].length);
             }
-
             break;
+
           case 3: /* Text Node */
-            if (directive = $interpolate(node.nodeValue, true)) {
+            if ((directive = $interpolate(node.nodeValue, true))) {
               directives.push(textInterpolateDirective(directive));
             }
             break;
+
           case 8: /* Comment */
             match = COMMENT_DIRECTIVE_REGEXP.exec(node.nodeValue);
-            if (match &&
-              (directive = getDirective(nName = camelCase(match[1]),  attrs))) {
-              attrs[nName] = trim(match[2]);
-              directives.push(directive);
+            if (match) {
+              nName = camelCase(match[1]);
+              directive = getDirective(nName);
+              if (directive) {
+                attrs[nName] = trim(match[2]);
+                directives.push(directive);
+              }
             }
             break;
         }
 
         directiveLinkingFn = directives.length &&
-          applyDirectivesPerElement(directiveLinkingFn, directives, node, attrs);
+          applyDirectivesPerElement(directives, node, attrs);
 
         childLinkingFn = (!directiveLinkingFn || !directiveLinkingFn.terminal) &&
           (childNodes = node.childNodes) && compileNodes(childNodes);
@@ -461,11 +475,12 @@ function $CompileProvider($injector) {
 
   // =============================
 
+
   // TODO(misko): it is not clear to me if the key should be normalize or not.
   // TODO(misko): this should also work for setting attributes in classes and comments
   function attrSetter(key, value) {
-    var attrValue = value,
-        booleanKey = BOOLEAN_ATTR[key.toLowerCase()];
+    var booleanKey = BOOLEAN_ATTR[key.toLowerCase()];
+
     if (booleanKey) {
       value = toBoolean(value);
       this.$element.prop(key, value);
@@ -475,11 +490,11 @@ function $CompileProvider($injector) {
     } else {
       this[key] = value;
     }
+
     if (isUndefined(value)) {
       this.$element.removeAttr(key);
     } else {
       this.$element.attr(key, value);
     }
   }
-    
 }
