@@ -13,10 +13,10 @@
  * In unit tests, if `angular-mocks.js` is loaded, this service is overriden by
  * {@link angular.module.ngMock.$exceptionHandler mock $exceptionHandler}
  */
-function $ExceptionHandlerProvider(){
+function $ExceptionHandlerProvider() {
   this.$get = ['$log', function($log){
-    return function(e) {
-      $log.error(e);
+    return function() {
+      $log.error.apply($log, arguments);
     };
   }];
 }
