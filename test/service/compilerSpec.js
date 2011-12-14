@@ -80,14 +80,10 @@ describe('$compile', function() {
     it('should allow registration of multiple directives with same name', function() {
       module(function($compileProvider) {
         $compileProvider.directive('div', function(log) {
-          return function() {
-            log('1');
-          };
+          return log.fn('1');
         });
         $compileProvider.directive('div', function(log) {
-          return function() {
-            log('2');
-          };
+          return log.fn('2');
         });
       });
       inject(function($compile, $rootScope, log) {
@@ -350,7 +346,7 @@ describe('$compile', function() {
             $compile('<div><span replace class="replace"></span></div>')
             fail();
           } catch(e) {
-            expect(e.message).toMatch(/Multiple template directives/);
+            expect(e.message).toMatch(/Multiple directives .* asking for template/);
           }
         }));
 
@@ -520,7 +516,7 @@ describe('$compile', function() {
           inject(function($compile){
             expect(function() {
               $compile('<div><div class="sync async"></div></div>');
-            }).toThrow('Multiple template directives [sync, async] asking for template on: <span class="sync async">');
+            }).toThrow('Multiple directives [sync, async] asking for template on: <span class="sync async">');
           });
         });
 
@@ -590,7 +586,7 @@ describe('$compile', function() {
           $compile('<div hello></div>');
           expect(function(){
             $httpBackend.flush();
-          }).toThrow('Content must have exactly one root element: before <b>mid</b> after');
+          }).toThrow('Template must have exactly one root element: before <b>mid</b> after');
         }));
 
 

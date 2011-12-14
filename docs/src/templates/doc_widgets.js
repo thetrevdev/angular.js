@@ -27,7 +27,7 @@ angular.module('ngdocs.directives', [], function($compileProvider) {
     return {
       terminal: true,
       compile: function(element, attrs) {
-        var module = element.attr('module') || '';
+        var module = attrs.module;
 
         //jQuery find() methods in this widget contain primitive selectors on purpose so that we can use
         //jqlite instead. jqlite's find() method currently supports onlt getElementsByTagName!

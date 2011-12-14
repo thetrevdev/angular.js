@@ -130,7 +130,7 @@ function $FormFactoryProvider() {
      * Static method on `$formFactory` service.
      *
      * Retrieve the closest form for a given element or defaults to the `root` form. Used by the
-     * {@link angular.widget.form form} element.
+     * {@link angular.module.ng.$compileProvider.directive.form form} element.
      * @param {Element} element The element where the search for form should initiate.
      */
     formFactory.forElement = function(element) {

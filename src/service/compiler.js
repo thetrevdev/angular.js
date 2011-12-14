@@ -87,11 +87,7 @@
  * Calling the linking function returns the element of the template. It is either the original element
  * passed in, or the clone of the element if the `cloneAttachFn` is provided.
  *
- * It is important to understand that the returned scope is "linked" to the view DOM, but no linking
- * (instance) functions registered by {@link angular.directive directives} or
- * {@link angular.widget widgets} found in the template have been executed yet. This means that the
- * view is likely empty and doesn't contain any values that result from evaluation on the scope. To
- * bring the view to life, the scope needs to run through a $digest phase which typically is done by
+ * After linking the view is not updateh until after a call to $digest which typically is done by
  * Angular automatically.
  *
  * If you need access to the bound view, there are two ways to do it:
@@ -140,7 +136,7 @@ function $CompileProvider($provide) {
 
   forEach('src,href,multiple,selected,checked,disabled,readonly,required'.split(','), function(name) {
     SIDE_EFFECT_ATTRS[name] = name;
-    SIDE_EFFECT_ATTRS[camelCase('ng_' + name)] = name;
+    SIDE_EFFECT_ATTRS[directiveNormalize('ng_' + name)] = name;
   });
 
 
@@ -203,11 +199,12 @@ function $CompileProvider($provide) {
 
     /**
      * Compile function matches each node in nodeList against the directives. Once all directives
-     * are collected their compile functions are executed. The result is a linking function for
-     * the nodeList.
+     * for a particular node are collected their compile functions are executed. The compile
+     * functions return values - the linking functions - are combined into a composite linking
+     * function, which is the a linking function for the node.
      *
-     * @param nodeList an array of nodes to compile
-     * @param rootElement If the nodeList is the root of the compilation tree then the
+     * @param {NodeList} nodeList an array of nodes to compile
+     * @param {DOMElement=} rootElement If the nodeList is the root of the compilation tree then the
      *        rootElement must be set the jqLite collection of the compile root. This is
      *        needed so that the jqLite collection items can be replaced with widgets.
      * @returns {?function} A composite linking function of all of the matched directives or null.
@@ -219,7 +216,7 @@ function $CompileProvider($provide) {
      for(var i = 0, ii = nodeList.length; i < ii; i++) {
        attrs = {
          $attr: {},
-         $normalize: camelCase,
+         $normalize: directiveNormalize,
          $set: attrSetter
        };
        // we must always refer to nodeList[i] since the nodes can be replaced underneath us.
@@ -281,14 +278,14 @@ function $CompileProvider($provide) {
       switch(nodeType) {
         case 1: /* Element */
           // use the node name: <directive>
-          addDirective(directives, camelCase(nodeName_(node).toLowerCase()), 'E');
+          addDirective(directives, directiveNormalize(nodeName_(node).toLowerCase()), 'E');
 
           // iterate over the attributes
           for (var attr, name, nName, value, nAttrs = node.attributes,
                    j = 0, jj = nAttrs && nAttrs.length; j < jj; j++) {
             attr = nAttrs[j];
             name = attr.name;
-            nName = camelCase(name.toLowerCase());
+            nName = directiveNormalize(name.toLowerCase());
             attrsMap[nName] = name;
             attrs[nName] = value = trim((msie && name == 'href')
                 ? decodeURIComponent(node.getAttribute(name, 2))
@@ -303,7 +300,7 @@ function $CompileProvider($provide) {
           // use class as directive
           className = node.className;
           while (match = CLASS_DIRECTIVE_REGEXP.exec(className)) {
-            nName = camelCase(match[2]);
+            nName = directiveNormalize(match[2]);
             if (addDirective(directives, nName, 'C')) {
               attrs[nName] = trim(match[3]);
             }
@@ -316,7 +313,7 @@ function $CompileProvider($provide) {
         case 8: /* Comment */
           match = COMMENT_DIRECTIVE_REGEXP.exec(node.nodeValue);
           if (match) {
-            nName = camelCase(match[1]);
+            nName = directiveNormalize(match[1]);
             if (addDirective(directives, nName, 'M')) {
               attrs[nName] = trim(match[2]);
             }
@@ -338,7 +335,7 @@ function $CompileProvider($provide) {
      *        this needs to be pre-sorted by priority order.
      * @param {Node} templateNode The raw DOM node to apply the compile functions to
      * @param {Object} templateAttrs The shared attribute function
-     * @param {Array} rootElement If we are working on the root of the compile tree then this
+     * @param {DOMElement} rootElement If we are working on the root of the compile tree then this
      *        argument has the root jqLite array so that we can replace widgets on it.
      * @returns linkingFn
      */
@@ -348,7 +345,7 @@ function $CompileProvider($provide) {
           postLinkingFns = [],
           newScopeDirective = null,
           templateDirective = null,
-          delayLinkingFn = null,
+          delayedLinkingFn = null,
           element = templateAttrs.$element = jqLite(templateNode),
           directive, linkingFn;
 
@@ -361,19 +358,25 @@ function $CompileProvider($provide) {
         }
 
         if (directive.scope) {
-          assertNoDuplicateScope(newScopeDirective, directive, element);
+          assertNoDuplicate('new scope', newScopeDirective, directive, element);
           newScopeDirective = directive;
         }
 
-        if ((directive.template)) {
-          assertNoDuplicateTemplates(templateDirective, directive, element);
+        if (directive.template) {
+          assertNoDuplicate('template', templateDirective, directive, element);
           templateDirective = directive;
 
-          // replace the element with the new element
+          // include the contents of the original element into the template and replace the element
           templateNode = jqLite(directive.template.replace(CONTENT_REGEXP, element.html()))[0];
           replaceWith(rootElement, element, templateNode);
 
           var newTemplateAttrs = {$attr: {}};
+
+          // combine directives from the original node and from the template:
+          // - take the array of directives for this element
+          // - split it into two parts, those that were already applied and those that weren't
+          // - collect directives from the template, add them to the second group and sort them
+          // - append the second group with new directives to the first group
           directives = directives.concat(
             collectDirectives(templateNode, directives.splice(i + 1), newTemplateAttrs));
           mergeTemplateAttributes(templateAttrs, newTemplateAttrs);
@@ -382,10 +385,10 @@ function $CompileProvider($provide) {
         }
 
         if (directive.templateUrl) {
-          assertNoDuplicateTemplates(templateDirective, directive, element);
+          assertNoDuplicate('template', templateDirective, directive, element);
           templateDirective = directive;
-          delayLinkingFn =
-            compileTemplateUrl(directives.splice(i), compositeLinkFn, element, templateAttrs, rootElement);
+          delayedLinkingFn = compileTemplateUrl(
+              directives.splice(i), compositeLinkFn, element, templateAttrs, rootElement);
           ii = directives.length;
         } else if (directive.compile) {
           try {
@@ -410,7 +413,7 @@ function $CompileProvider($provide) {
       compositeLinkFn.scope = !!newScopeDirective;
 
       // if we have templateUrl, then we have to delay linking
-      return delayLinkingFn || compositeLinkFn;
+      return delayedLinkingFn || compositeLinkFn;
 
       ////////////////////
 
@@ -520,18 +523,17 @@ function $CompileProvider($provide) {
           afterWidgetChildrenLinkFn,
           originalWidgetNode = tElement[0],
           asyncWidgetDirective = directives.shift(),
-          // The fact that we have to copy and path the directives seems wrong!
+          // The fact that we have to copy and patch the directive seems wrong!
           syncWidgetDirective = extend({}, asyncWidgetDirective, {templateUrl:null}),
           html = tElement.html();
 
       tElement.html('');
 
-      $http.
-        get(asyncWidgetDirective.templateUrl, {cache: $templateCache}).
+      $http.get(asyncWidgetDirective.templateUrl, {cache: $templateCache}).
         success(function(content) {
           content = trim(content);
           if (!content.match(HAS_ROOT_ELEMENT)) {
-            throw Error('Content must have exactly one root element: ' + content);
+            throw Error('Template must have exactly one root element: ' + content);
           }
 
           var tempTemplateAttrs = {$attr: {}},
@@ -589,19 +591,10 @@ function $CompileProvider($provide) {
     }
 
 
-    function assertNoDuplicateScope(newScopeDirective, directive, element) {
-      if (newScopeDirective) {
-        throw Error('Multiple directives [' + newScopeDirective.name + ', ' +
-          directive.name + '] asking for new scope on: ' +
-          startingTag(element));
-      }
-    }
-
-
-    function assertNoDuplicateTemplates(templateDirective, directive, element) {
-      if (templateDirective) {
-        throw Error('Multiple template directives [' + templateDirective.name + ', ' +
-          directive.name + '] asking for template on: ' +  startingTag(element));
+    function assertNoDuplicate(what, previousDirective, directive, element) {
+      if (previousDirective) {
+        throw Error('Multiple directives [' + previousDirective.name + ', ' +
+          directive.name + '] asking for ' + what + ' on: ' +  startingTag(element));
       }
     }
 
@@ -655,13 +648,13 @@ function $CompileProvider($provide) {
 
     /**
      * This is a special jqLite.replaceWith, which can replace items which
-     * have no parents, provided that the jqLite collection is provided.
+     * have no parents, provided that the containing jqLite collection is provided.
      *
-     * @param rootElement The root of the compileTree. Needed so that we can replace widgets in
-     *        the root of the tree.
-     * @param element  The jqLite element which we are going to replace. We keep the shell, but
-     *        replace its reference.
-     * @param newNode the new node
+     * @param {JqLite=} rootElement The root of the compile tree. Used so that we can replace nodes
+     *    in the root of the tree.
+     * @param {JqLite} element The jqLite element which we are going to replace. We keep the shell,
+     *    but replace its DOM node reference.
+     * @param {Node} newNode The new DOM node.
      */
     function replaceWith(rootElement, element, newNode) {
       var oldNode = element[0],
@@ -680,10 +673,8 @@ function $CompileProvider($provide) {
       }
       element[0] = newNode;
     }
-
   }];
 
-  // =============================
 
   /**
    * Set a normalized attribute on the element in a way such that all directives
@@ -721,4 +712,20 @@ function $CompileProvider($provide) {
       this.$element.attr(attrName, value);
     }
   }
+}
+
+var PREFIX_REGEXP = /^(x[\:\-_]|data[\:\-_])/i;
+/**
+ * Converts all accepted directives format into proper directive name.
+ * All of these will become 'myDirective':
+ *   my:DiRective
+ *   my-directive
+ *   x-my-directive
+ *   data-my:directive
+ *
+ * Also there is special case for Moz prefix starting with upper case letter.
+ * @param name Name to normalize
+ */
+function directiveNormalize(name) {
+  return camelCase(name.replace(PREFIX_REGEXP, ''));
 }
