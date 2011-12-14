@@ -1,5 +1,5 @@
 @ngdoc overview
-@name angular.module.ng
+@name angular.module.ng.$compileProvider.directive
 @description
 
 Directives are a way to teach HTML new tricks. During the compilation directives are matched
@@ -11,10 +11,11 @@ but can be extended such that HTML can be turned into a declarative DSL (domain 
 
 # Invoking directives from HTML
 
-Directives have camel cased names such as 'ngBind'. The directive can be invoked by translating it
-into snake case with these special characters `:`, `-`, or `_`. Optionally the directive can be
-prefixed with `x-`, `data-`, or `x-data` to make it validator compliant. Here is a list of some
-of the possible directive names: `ng:bind`, `ng-bind`, `ng_bind`, `x-ng-bind` and `data-ng-bind`.
+Directives have camel cased names such as 'ngBindc'. The directive can be invoked by translating the
+camel case name into snake case with these special characters `:`, `-`, or `_`. Optionally the
+directive can be prefixed with `x-`, or `data-` to make it HTML validator compliant. Here is a
+list of some of the possible directive names: `ng:bind`, `ng-bind`, `ng_bind`, `x-ng-bind` and
+`data-ng-bind`.
 
 The directives can be placed in element names, attributes, class names, as well as comments. Here
 are some equivalent examples of invoking `ngBind`.
