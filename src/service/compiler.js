@@ -260,15 +260,16 @@ function $CompileProvider($injector) {
      * @param {Object} templateAttrs The shared attribute function
      * @returns linkingFn
      */
-    function applyDirectivesPerElement(directives, templateNode, templateAttrs) {
+    function applyDirectivesToNode(directives, templateNode, templateAttrs) {
       directives.sort(byPriority);
-      var terminalPriority = -Number.MAX_VALUE;
+      var terminalPriority = -Number.MAX_VALUE,
+          linkingFns = [],
+          newScopeDirective = null,
+          element = templateAttrs.$element = jqLite(templateNode),
+          directive, templateDirectives, template, newTemplateAttrs;
 
       // executes all directives on the current element
-      for(var i = 0, ii = directives.length,
-            linkingFns = [], directive, templateDirectives, template, newTemplateAttrs,
-            newScopeDirective = null,
-            element = templateAttrs.$element = jqLite(templateNode); i < ii; i++) {
+      for(var i = 0, ii = directives.length; i < ii; i++) {
         try {
           directive = directives[i];
           if (directive.scope) {
@@ -280,16 +281,16 @@ function $CompileProvider($injector) {
             newScopeDirective = directive;
           }
 
-          if (template = directive.html) {
+          if ((template = directive.html)) {
             element.html(template.replace(CONTENT_REGEXP, element.html()));
             templateAttrs.$element = template = jqLite(element.children()[0]);
             // replace the element with the new element
             element.replaceWith(template);
 
             templateDirectives = collectDirectives(template[0],
-              newTemplateAttrs = {}, newTemplateAttrs.$attr = {});
+                newTemplateAttrs = {}, newTemplateAttrs.$attr = {});
             mergeTemplateAttributes(templateAttrs, newTemplateAttrs);
-            
+
             // take the remaining directives of old element and append them to the new directives
             templateDirectives.concat(directives.splice(i + 1));
             // resort the new directives
@@ -479,10 +480,10 @@ function $CompileProvider($injector) {
      */
     function compileNodes(nodeList) {
       var linkingFns = [],
-          haveLinkingFn = null;
+          haveLinkingFn = null,
+          directiveLinkingFn, childLinkingFn, childNodes, directives, node, attrs, attrsMap;
 
-      for(var i = 0, directiveLinkingFn, childLinkingFn, childNodes, directives, node,
-            attrs, attrsMap; i < nodeList.length; i++) {
+      for(var i = 0, ii = nodeList.length; i < ii; i++) {
         attrsMap = {},
         attrs = {
           $attr: attrsMap,
@@ -492,7 +493,7 @@ function $CompileProvider($injector) {
         directives = collectDirectives(node, attrs, attrsMap);
 
         directiveLinkingFn = directives.length &&
-          applyDirectivesPerElement(directives, node, attrs);
+          applyDirectivesToNode(directives, node, attrs);
 
         childLinkingFn = (!directiveLinkingFn || !directiveLinkingFn.terminal) &&
           (childNodes = node.childNodes) && compileNodes(childNodes);
@@ -532,9 +533,9 @@ function $CompileProvider($injector) {
   /**
    * Set a normalized attribute on the element in a way such that all directives
    * can share the attribute. This function properly handles boolean attributes.
-   * @param {string} key normalized key. (ie ngAttribute)
-   * @param {string|boolean} value the value to set
-   * @param {string=} attrName optional none normalized name. Defaults to key.
+   * @param {string} key Normalized key. (ie ngAttribute)
+   * @param {string|boolean} value The value to set. If `null` attribute will be deleted.
+   * @param {string=} attrName Optional none normalized name. Defaults to key.
    */
   function attrSetter(key, value, attrName) {
     var booleanKey = BOOLEAN_ATTR[key.toLowerCase()];
@@ -553,7 +554,8 @@ function $CompileProvider($injector) {
     if (attrName) {
       this.$attr[key] = attrName;
     } else {
-      if (!(attrName = this.$attr[key])) {
+      attrName = this.$attr[key];
+      if (!attrName) {
         this.$attr[key] = attrName = snake_case(key, '-');
       }
     }
