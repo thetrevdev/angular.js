@@ -38,6 +38,7 @@ describe('$compile', function() {
     ));
   });
 
+
   describe('directives', function() {
 
     // TODO(i): these tests are messy and test many things at once - should be decoupled and

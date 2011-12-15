@@ -287,8 +287,8 @@ function $CompileProvider($injector) {
             // replace the element with the new element
             element.replaceWith(template);
 
-            templateDirectives = collectDirectives(template[0],
-                newTemplateAttrs = {}, newTemplateAttrs.$attr = {});
+            newTemplateAttrs = {$attr: {}};
+            templateDirectives = collectDirectives(template[0], newTemplateAttrs);
             mergeTemplateAttributes(templateAttrs, newTemplateAttrs);
 
             // take the remaining directives of old element and append them to the new directives
@@ -416,9 +416,10 @@ function $CompileProvider($injector) {
     }
 
          
-    function collectDirectives(node, attrs, attrsMap) {
+    function collectDirectives(node, attrs) {
       var nodeType = node.nodeType,
           directives = [],
+          attrsMap = attrs.$attr,
           match,
           className;
 
@@ -476,41 +477,43 @@ function $CompileProvider($injector) {
      * Compile function matches the nodeList against the directives, and then executes the
      * directive template function.
      * @param nodeList
-     * @returns a composite linking function of all of the matched directives.
+     * @returns {?function} A composite linking function of all of the matched directives or null.
      */
     function compileNodes(nodeList) {
       var linkingFns = [],
           haveLinkingFn = null,
-          directiveLinkingFn, childLinkingFn, childNodes, directives, node, attrs, attrsMap;
+          directiveLinkingFn, childLinkingFn, directives, node, attrs;
 
       for(var i = 0, ii = nodeList.length; i < ii; i++) {
-        attrsMap = {},
         attrs = {
-          $attr: attrsMap,
+          $attr: {},
           $normalize: camelCase,
-          $set: attrSetter},
+          $set: attrSetter
+        },
         node = nodeList[i];
-        directives = collectDirectives(node, attrs, attrsMap);
+        directives = collectDirectives(node, attrs);
 
-        directiveLinkingFn = directives.length &&
-          applyDirectivesToNode(directives, node, attrs);
+        directiveLinkingFn = (directives.length)
+            ? applyDirectivesToNode(directives, node, attrs)
+            : null;
 
-        childLinkingFn = (!directiveLinkingFn || !directiveLinkingFn.terminal) &&
-          (childNodes = node.childNodes) && compileNodes(childNodes);
+        childLinkingFn = (directiveLinkingFn && directiveLinkingFn.terminal)
+            ? null
+            : compileNodes(node.childNodes);
 
         linkingFns.push(directiveLinkingFn);
         linkingFns.push(childLinkingFn);
         haveLinkingFn = (haveLinkingFn || directiveLinkingFn || childLinkingFn);
       }
 
-      // return a linking function if we have found anything.
+      // return a linking function if we have found anything, null otherwise
       return haveLinkingFn &&
         function(scope, nodeList, rootElement) {
           if (linkingFns.length != nodeList.length * 2) {
             throw Error('Template changed structure!');
           }
-          for(var childLinkingFn, directiveLinkingFn,
-                  i=0, n=0, node, ii=linkingFns.length; i<ii; n++) {
+          for(var childLinkingFn, directiveLinkingFn, node,
+                  i=0, n=0, ii=linkingFns.length; i<ii; n++) {
             node = nodeList[n];
             directiveLinkingFn = linkingFns[i++];
             childLinkingFn = linkingFns[i++];
