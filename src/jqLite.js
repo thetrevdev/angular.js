@@ -98,7 +98,7 @@ function getStyle(element) {
 
 
 var SPECIAL_CHARS_REGEXP = /([\:\-\_]+(.))/g;
-var PREFIX_REGEXP = /^(x[\:\-\_]|data[\:\-\_])/i;
+var PREFIX_REGEXP = /^(x[\:\-_]|data[\:\-_])/i;
 var MOZ_HACK_REGEXP = /^moz([A-Z])/;
 /**
  * Converts all accepted directives format into proper directive name.

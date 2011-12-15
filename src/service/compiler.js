@@ -71,7 +71,7 @@
 
  *
  *
- * @param {string|DOMElement} element Element or HTML to compile into a template function.
+ * @param {string|DOMElement} element Element or HTML string to compile into a template function.
  * @returns {function(scope[, cloneAttachFn])} a link function which is used to bind template
  * (a DOM element/tree) to a scope. Where:
  *
@@ -143,7 +143,7 @@ function $CompileProvider($injector) {
   });
 
 
-  this.directive = function registerDirective(name, directive){
+  this.directive = function registerDirective(name, directive) {
     if (isString(name)) {
       assertArg(directive, 'directive');
       directiveCache[name] = false;
@@ -180,8 +180,8 @@ function $CompileProvider($injector) {
           ? JQLitePrototype.clone.call(templateElement) // IMPORTANT!!!
           : templateElement;
         element.data('$scope', scope);
-        cloneConnectFn && cloneConnectFn(element, scope);
-        linkingFn && linkingFn(scope, element, true);
+        if (cloneConnectFn) cloneConnectFn(element, scope);
+        if (linkingFn) linkingFn(scope, element, true);
         return element;
       };
     };
