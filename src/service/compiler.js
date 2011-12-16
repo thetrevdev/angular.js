@@ -166,8 +166,8 @@ function $CompileProvider($injector) {
   };
 
 
-  this.$get = ['$interpolate', '$exceptionHandler',
-       function($interpolate,   $exceptionHandler) {
+  this.$get = ['$interpolate', '$exceptionHandler', '$templateCache',
+       function($interpolate,   $exceptionHandler, $templateCache) {
 
     return function(templateElement) {
       templateElement = jqLite(templateElement);
@@ -284,7 +284,12 @@ function $CompileProvider($injector) {
             newScopeDirective = directive;
           }
 
-          if ((template = directive.html)) {
+          template = directive.html;
+          if (!template && directive.templateUrl) {
+            template = $templateCache.get(directive.templateUrl);
+            if (!template) throw Error('Template ' + directive.templateUrl + ' not available!');
+          }
+          if (template) {
             template = jqLite(template.replace(CONTENT_REGEXP, element.html()));
             // replace the element with the new element
             element.replaceWith(template);

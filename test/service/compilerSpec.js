@@ -325,6 +325,73 @@ describe('$compile', function() {
       });
 
 
+      ddescribe('templateUrl', function() {
+
+        beforeEach(inject(function($compileProvider) {
+          $compileProvider.directive('hello', valueFn({
+            templateUrl: 'hello.html'
+          }));
+        }))
+
+
+        it('should fetch template from template cache and replace the current element', inject(
+            function($compile, $rootScope, $templateCache) {
+              $templateCache.put('hello.html', '<hi>there</hi>');
+              var element = jqLite('<div><hello></hello></div>');
+
+              $compile(element);
+              expect(sortedHtml(element)).toBe('<div><hi>there</hi></div>');
+            })
+        );
+
+
+        it('should throw an exception if template cannot be found', inject(
+            function($compile) {
+              var element = jqLite('<div><hello></hello></div>');
+
+              expect(function() {
+                $compile(element);
+              }).toThrow('Template hello.html not available!');
+
+            })
+        );
+
+
+        it('should merge attributes of the template elements', inject(
+            function($compile, $rootScope, $templateCache) {
+              $templateCache.put('hello.html', '<hi foo="baz">there</hi>');
+              var element = jqLite('<div><hello class="x" foo="bar"></hello></div>');
+
+              $compile(element);
+              expect(sortedHtml(element)).toBe('<div><hi class="x" foo="bar">there</hi></div>');
+            })
+        );
+
+
+        it('should further compile the inlined template', inject(
+            function($compileProvider, log) {
+              $compileProvider.directive('hello', valueFn({
+                templateUrl: 'hello.html',
+                compile: log.fn('hello')
+              }));
+              $compileProvider.directive('bye', valueFn({
+                compile: log.fn('bye')
+              }));
+            },
+            function($compile, $rootScope, $templateCache, log) {
+              $templateCache.put('hello.html', '<hi><bye>{{"x"}}</bye></hi>');
+              element = jqLite('<div><hello></hello></div>');
+
+              $compile(element)($rootScope);
+              $rootScope.$digest();
+
+              expect(sortedHtml(element)).toBe('<div><hi><bye>x</bye></hi></div>');
+              expect(log).toEqual('hello; bye');
+            })
+        );
+      });
+
+
       describe('scope', function() {
 
         beforeEach(inject(function($compileProvider, log) {
