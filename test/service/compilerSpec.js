@@ -78,7 +78,26 @@ ddescribe('$compile', function() {
           expect(log).toEqual('OK');
         }
     ));
-    it('should allow registration of multiple directives with same name', pending);
+
+
+    it('should allow registration of multiple directives with same name', inject(
+      function($compileProvider, log) {
+        $compileProvider.directive('div', function() {
+          return function() {
+            log('1');
+          };
+        });
+        $compileProvider.directive('div', function() {
+          return function() {
+            log('2');
+          };
+        });
+      },
+      function($compile, $rootScope, log) {
+        element = $compile('<div></div>')($rootScope);
+        expect(log).toEqual('1; 2');
+      }
+    ));
   });
 
 
@@ -506,7 +525,7 @@ ddescribe('$compile', function() {
 
         it('should allow creation of new scopes', inject(function($rootScope, $compile, log) {
           element = $compile('<div><span scope-a><a log></a></span></div>')($rootScope);
-          expect(log).toEqual('log-002; 002');
+          expect(log).toEqual('LOG; log-002; 002');
         }));
 
 

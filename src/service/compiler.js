@@ -130,8 +130,7 @@
 
 $CompileProvider.$inject = ['$injector'];
 function $CompileProvider($injector) {
-  var directiveCache = {},
-      directiveFactories = {},
+  var directiveMap = {},
       COMMENT_DIRECTIVE_REGEXP = /^\s*directive\:\s*([\d\w\-_]+)\s+(.*)$/,
       CLASS_DIRECTIVE_REGEXP = /(([\d\w\-_]+)(?:\:([^;]+))?;?)/,
       CONTENT_REGEXP = /\<\<content\>\>/i,
@@ -143,21 +142,24 @@ function $CompileProvider($injector) {
   });
 
 
-  this.directive = function registerDirective(name, directive) {
+  this.directive = function registerDirective(name, directiveFactory) {
     if (isString(name)) {
-      assertArg(directive, 'directive');
-      directiveCache[name] = false;
-      directiveFactories[name] = function() {
-        directive = $injector.invoke(null, directive);
-        if (isFunction(directive)) {
-          directive = { compile: valueFn(directive) };
-        }
-        directive.priority = directive.priority || 0;
-        directive.name = name;
-        directive.restrict = directive.restrict || 'EACM';
-        if (directive.templateUrl) directive.terminal = true;
-        return directiveCache[name] = directive;
-      }
+      assertArg(directiveFactory, 'directive');
+      var directive;
+      (directiveMap.hasOwnProperty(name) ? directiveMap[name] : (directiveMap[name] = [])).
+        push(function() {
+          if (!directive) {
+            directive = $injector.invoke(null, directiveFactory);
+            if (isFunction(directive)) {
+              directive = { compile: valueFn(directive) };
+            }
+            directive.priority = directive.priority || 0;
+            directive.name = name;
+            directive.restrict = directive.restrict || 'EACM';
+            if (directive.templateUrl) directive.terminal = true;
+          }
+          return directive;
+        });
     } else {
       forEach(name, function(fn, name) {
         registerDirective(name, fn);
@@ -208,19 +210,23 @@ function $CompileProvider($injector) {
      *   * `A': attribute
      *   * `C`: class
      *   * `M`: comment
-     * @returns bound directive function.
+     * @returns true if directive was added.
      */
-    function addDirective(directives, name, location) {
-      if (directiveFactories.hasOwnProperty(name)) {
-        try {
-          var directive =  directiveCache[name] ||
-            (directiveCache[name] = directiveFactories[name]());
-          if (directive.restrict.indexOf(location) != -1) {
-            directives.push(directive);
-            return directive;
-          }
-        } catch(e) { $exceptionHandler(e); }
+    function addDirective(tDirectives, name, location) {
+      var match = false;
+      if (directiveMap.hasOwnProperty(name)) {
+        for(var directive, directives = directiveMap[name],
+            i=0, ii = directives.length; i<ii; i++) {
+          try {
+            directive = directives[i]();
+            if (directive.restrict.indexOf(location) != -1) {
+              tDirectives.push(directive);
+              match = true;
+            }
+          } catch(e) { $exceptionHandler(e); }
+        }
       }
+      return match;
     }
 
 
