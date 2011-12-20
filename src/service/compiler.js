@@ -255,6 +255,21 @@ function $CompileProvider($injector) {
       });
     }
 
+    function assertNoDuplicateScope(newScopeDirective, directive, element) {
+      if (newScopeDirective) {
+        throw Error('Multiple directives [' + newScopeDirective.name + ', ' +
+          directive.name + '] asking for new scope on: ' +
+          startingTag(element));
+      }
+    }
+
+    function assertNoDuplicateTemplates(templateDirective, directive, element) {
+      if (templateDirective) {
+        throw Error('Multiple template directives [' + templateDirective.name + ', ' +
+          directive.name + '] asking for template on: ' +  startingTag(element));
+      }
+    }
+
     /**
      * Once the directives have been collected they are sorted and then applied to the element
      * by priority order.
@@ -267,79 +282,80 @@ function $CompileProvider($injector) {
     function applyDirectivesToNode(directives, templateNode, templateAttrs) {
       directives.sort(byPriority);
       var terminalPriority = -Number.MAX_VALUE,
-          prelinkingFns = [],
-          linkingFns = [],
+          preLinkingFns = [],
+          postLinkingFns = [],
           newScopeDirective = null,
+          templateDirective = null,
+          delayLinkingFn = null,
           element = templateAttrs.$element = jqLite(templateNode),
           directive, templateDirectives, template, newTemplateAttrs, linkingFn;
 
       // executes all directives on the current element
       for(var i = 0, ii = directives.length; i < ii; i++) {
-        // TODO(i): should the try block be just around the developer-provided compile fn?
-        //   we are catching our own exceptions and double logging the startingTag.
-        try {
-          directive = directives[i];
+        directive = directives[i];
 
-          if (terminalPriority > directive.priority) {
-            break; // prevent further processing of directives
-          }
+        if (terminalPriority > directive.priority) {
+          break; // prevent further processing of directives
+        }
 
-          if (directive.scope) {
-            if (newScopeDirective) {
-              throw Error('Multiple directives [' + newScopeDirective.name + ', ' +
-                directive.name + '] asking for new scope on: ' +
-                startingTag(element));
-            }
-            newScopeDirective = directive;
-          }
+        if (directive.scope) {
+          assertNoDuplicateScope(newScopeDirective, directive, element);
+          newScopeDirective = directive;
+        }
 
-          if ((template = directive.html)) {
-            template = jqLite(template.replace(CONTENT_REGEXP, element.html()));
-            // replace the element with the new element
-            element.replaceWith(template);
-            templateAttrs.$element = element = template;
-            templateNode = element[0];
+        if ((template = directive.html)) {
+          assertNoDuplicateTemplates(templateDirective, directive, element);
+          templateDirective = directive;
+          template = jqLite(template.replace(CONTENT_REGEXP, element.html()));
+          // replace the element with the new element
+          element.replaceWith(template);
+          templateAttrs.$element = element = template;
+          templateNode = element[0];
 
-            newTemplateAttrs = {$attr: {}};
-            templateDirectives = collectDirectives(templateNode, newTemplateAttrs);
-            mergeTemplateAttributes(templateAttrs, newTemplateAttrs);
+          newTemplateAttrs = {$attr: {}};
+          templateDirectives = collectDirectives(templateNode, newTemplateAttrs);
+          mergeTemplateAttributes(templateAttrs, newTemplateAttrs);
 
-            // take the remaining directives of old element and append them to the new directives
-            templateDirectives.concat(directives.splice(i + 1));
-            // resort the new directives
-            templateDirectives.sort(byPriority);
-            // splice the sorted new directives into the current directive list
-            directives = directives.concat(templateDirectives);
-            ii = directives.length;
-          }
+          // take the remaining directives of old element and append them to the new directives
+          templateDirectives.concat(directives.splice(i + 1));
+          // resort the new directives
+          templateDirectives.sort(byPriority);
+          // splice the sorted new directives into the current directive list
+          directives = directives.concat(templateDirectives);
+          ii = directives.length;
+        }
 
-          if (directive.templateUrl) {
-            linkingFns.push(compileTemplateUrl(directive.templateUrl, directive.compile, element,
-                templateAttrs));
-            compositeLinkFn.terminal = true;
-            break;
-          } else if (directive.compile) {
+        if (directive.templateUrl) {
+          assertNoDuplicateTemplates(templateDirective, directive, element);
+          templateDirective = directive;
+          delayLinkingFn =
+            compileTemplateUrl(directive.templateUrl, compositeLinkFn, element, templateAttrs);
+        }
+
+        if (directive.compile) {
+          try {
             linkingFn = directive.compile(element, templateAttrs);
             if (isFunction(linkingFn)) {
-              linkingFns.push(linkingFn);
+              postLinkingFns.push(linkingFn);
             } else if (linkingFn) {
-              if (linkingFn.pre) prelinkingFns.push(linkingFn.pre);
-              if (linkingFn.post) linkingFns.push(linkingFn.post);
+              if (linkingFn.pre) preLinkingFns.push(linkingFn.pre);
+              if (linkingFn.post) postLinkingFns.push(linkingFn.post);
             }
+          } catch (e) {
+            $exceptionHandler(e, startingTag(element));
           }
-        } catch (e) {
-          $exceptionHandler(e, startingTag(element));
         }
-        
+
         if (directive.terminal) {
           compositeLinkFn.terminal = true;
           terminalPriority = Math.max(terminalPriority, directive.priority);
         }
       }
       compositeLinkFn.scope = !!newScopeDirective;
-      
-      return compositeLinkFn;
-      
+
+      // if we have templateUrl, then we have to delay linking
+      return delayLinkingFn || compositeLinkFn;
+
       ////////////////////
 
 
@@ -355,9 +371,9 @@ function $CompileProvider($injector) {
         element = attrs.$element;
 
         // PRELINKING
-        for(i = 0, ii = prelinkingFns.length; i < ii; i++) {
+        for(i = 0, ii = preLinkingFns.length; i < ii; i++) {
           try {
-            prelinkingFns[i](scope, element, attrs);
+            preLinkingFns[i](scope, element, attrs);
           } catch (e) {
             $exceptionHandler(e, startingTag(element));
           }
@@ -367,9 +383,9 @@ function $CompileProvider($injector) {
         childLinkingFn && childLinkingFn(scope, linkNode.childNodes);
 
         // POSTLINKING
-        for(i = 0, ii = linkingFns.length; i < ii; i++) {
+        for(i = 0, ii = postLinkingFns.length; i < ii; i++) {
           try {
-            linkingFns[i](scope, element, attrs);
+            postLinkingFns[i](scope, element, attrs);
           } catch (e) {
             $exceptionHandler(e, startingTag(element));
           }
@@ -539,37 +555,25 @@ function $CompileProvider($injector) {
     }
 
 
-    function compileTemplateUrl(templateUrl, origCompileFn, tElement, tAttrs) {
+    function compileTemplateUrl(templateUrl, linkFn, tElement, tAttrs) {
       var linkQueue = [],
           childrenLinkFn,
           directiveLinkFn,
           html = tElement.html();
 
       tElement.html('');
-      function link(scope, cElement, cAttrs) {
-        childrenLinkFn && childrenLinkFn(scope, cElement[0].childNodes);
-        try {
-          directiveLinkFn && directiveLinkFn(scope, cElement, cAttrs);
-        } catch (e) {
-          $exceptionHandler(e, startingTag(cElement));
-        }
-      }
 
-      $http.get(templateUrl, {cache: $templateCache}).
+      $http.
+        get(templateUrl, {cache: $templateCache}).
         success(function(content) {
           html = content.replace(CONTENT_REGEXP, html);
           tElement.html(html);
           childrenLinkFn = compileNodes(tElement.contents());
-          try {
-            directiveLinkFn = origCompileFn && origCompileFn(tElement, tAttrs);
-          } catch (e) {
-            $exceptionHandler(e, startingTag(tElement));
-          }
 
           while(linkQueue.length) {
-            var cElement = linkQueue.pop()
-            cElement.html(html);
-            link(linkQueue.pop(), cElement, linkQueue.pop());
+            var cLinkNode = linkQueue.pop()
+            jqLite(cLinkNode).html(html);
+            linkFn(childrenLinkFn, linkQueue.pop(), cLinkNode);
           }
           linkQueue = null;
         }).
@@ -577,13 +581,12 @@ function $CompileProvider($injector) {
           throw Error('Failed to load template: ' + config.url);
         });
 
-      return function(scope, cElement, cAttrs) {
+      return function(ignoreChildLinkingFn, scope, linkNode) {
         if (linkQueue) {
-          linkQueue.push(cAttrs);
           linkQueue.push(scope);
-          linkQueue.push(cElement);
+          linkQueue.push(linkNode);
         } else {
-          link(scope, cElement, cAttrs);
+          linkFn(childrenLinkFn, scope, linkNode);
         }
       };
     }

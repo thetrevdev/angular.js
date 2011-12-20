@@ -1,6 +1,6 @@
 'use strict';
 
-describe('$compile', function() {
+ddescribe('$compile', function() {
   var element, log;
 
   beforeEach(inject(provideLog, function($provide, $compileProvider){
@@ -78,6 +78,7 @@ describe('$compile', function() {
           expect(log).toEqual('OK');
         }
     ));
+    it('should allow registration of multiple directives with same name', pending);
   });
 
 
@@ -322,6 +323,9 @@ describe('$compile', function() {
           expect(div.attr('replace')).toEqual('');
           expect(div.attr('high-log')).toEqual('');
         }));
+
+        it('should prevent multiple templates per element', pending);
+
       });
 
 
@@ -474,6 +478,9 @@ describe('$compile', function() {
               expect(sortedHtml(element)).toBe('<div><hello></hello></div>');
             }
         ));
+
+        it('should prevent multiple templates per element', pending);
+        it('should delay linking functions until after template is resolved', pending);
       });
 
 
@@ -582,6 +589,9 @@ describe('$compile', function() {
           expect(log).toEqual('tA; tB; tC; preA; preB; preC; postC; postA; postB');
         }
     ));
+
+
+    it('should support link function on directive object', pending);
   });
 
 
