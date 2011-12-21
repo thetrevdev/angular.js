@@ -677,7 +677,19 @@ ddescribe('$compile', function() {
     ));
 
 
-    it('should support link function on directive object', pending);
+    it('should support link function on directive object', inject(
+      function($compileProvider) {
+        $compileProvider.directive('abc', valueFn({
+          link: function(scope, element, attrs) {
+            element.text(attrs.abc);
+          }
+        }));
+      },
+      function($compile, $rootScope) {
+        element = $compile('<div abc="WORKS">FAIL</div>')($rootScope);
+        expect(element.text()).toEqual('WORKS');
+      }
+    ));
   });
 
 
