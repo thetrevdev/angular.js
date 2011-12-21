@@ -232,3 +232,8 @@ function provideLog($provide) {
 function pending() {
   dump('PENDING');
 };
+
+function IMPLEMENT(msg) {
+  dump('IMPLEMENT:', msg);
+  throw Error('IMPLEMENT: ' + (msg || ''));
+}
