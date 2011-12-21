@@ -172,7 +172,7 @@ function $CompileProvider($injector) {
 
 
   this.$get = ['$interpolate', '$exceptionHandler', '$http', '$templateCache',
-       function($interpolate,   $exceptionHandler, $http, $templateCache) {
+       function($interpolate,   $exceptionHandler,   $http,   $templateCache) {
 
     return function(templateElement) {
       templateElement = jqLite(templateElement);
@@ -194,97 +194,144 @@ function $CompileProvider($injector) {
     //================================
 
     /**
-     * Sorting function for bound directives.
+     * Compile function matches each node in nodeList against the directives. Once all directives
+     * are collected their compile functions are executed. The result is a linking function for
+     * the nodeList.
+     *
+     * @param nodeList an array of nodes to compile
+     * @param rootElement If the nodeList is the root of the compilation tree then the
+     *        rootElement must be set the jqLite collection of the compile root. This is
+     *        needed so that the jqLite collection items can be replaced with widgets.
+     * @returns {?function} A composite linking function of all of the matched directives or null.
      */
-    function byPriority(a, b) {
-      return b.priority - a.priority;
-    }
+    function compileNodes(nodeList, rootElement) {
+     var linkingFns = [],
+         directiveLinkingFn, childLinkingFn, directives, attrs, linkingFnFound;
+
+     for(var i = 0, ii = nodeList.length; i < ii; i++) {
+       attrs = {
+         $attr: {},
+         $normalize: camelCase,
+         $set: attrSetter
+       };
+       // we must always refer to nodeList[i] since the nodes can be replaced underneath us.
+       directives = collectDirectives(nodeList[i], [], attrs);
+
+       directiveLinkingFn = (directives.length)
+           ? applyDirectivesToNode(directives, nodeList[i], attrs, rootElement)
+           : null;
+
+       childLinkingFn = (directiveLinkingFn && directiveLinkingFn.terminal)
+           ? null
+           : compileNodes(nodeList[i].childNodes);
+
+       linkingFns.push(directiveLinkingFn);
+       linkingFns.push(childLinkingFn);
+       linkingFnFound = (linkingFnFound || directiveLinkingFn || childLinkingFn);
+     }
+
+     // return a linking function if we have found anything, null otherwise
+     return linkingFnFound ? linkingFn : null;
+
+     function linkingFn(scope, nodeList, rootElement) {
+       if (linkingFns.length != nodeList.length * 2) {
+         throw Error('Template changed structure!');
+       }
+       for(var childLinkingFn, directiveLinkingFn, node,
+               i=0, n=0, ii=linkingFns.length; i<ii; n++) {
+         node = nodeList[n];
+         directiveLinkingFn = linkingFns[i++];
+         childLinkingFn = linkingFns[i++];
+
+         if (directiveLinkingFn) {
+           if (directiveLinkingFn.scope && !rootElement) {
+             jqLite(node).data('$scope', scope = scope.$new());
+           }
+           directiveLinkingFn(childLinkingFn, scope, node, rootElement);
+         } else if (childLinkingFn) {
+           childLinkingFn(scope, node.childNodes);
+         }
+       }
+     }
+   }
+
 
     /**
-     * looks up the directive and decorates it with exception handling and proper parameters. We
-     * call this the boundDirective.
+     * Looks for directives on the given node ands them to the directive collection which is sorted.
      *
-     * @param {string} name name of the directive to look up.
-     * @param {string} location The directive must be found in specific format.
-     *   String containing any of theses characters:
-     *
-     *   * `E`: element name
-     *   * `A': attribute
-     *   * `C`: class
-     *   * `M`: comment
-     * @returns true if directive was added.
+     * @param node node to search
+     * @param directives an array to which the directives are added to. This array is sorted before
+     *        the function returns.
+     * @param attrs the shared attrs object which is used to populate the normalized attributes.
      */
-    function addDirective(tDirectives, name, location) {
-      var match = false;
-      if (directiveMap.hasOwnProperty(name)) {
-        for(var directive, directives = directiveMap[name],
-            i=0, ii = directives.length; i<ii; i++) {
-          try {
-            directive = directives[i]();
-            if (directive.restrict.indexOf(location) != -1) {
-              tDirectives.push(directive);
-              match = true;
+    function collectDirectives(node, directives, attrs) {
+      var nodeType = node.nodeType,
+          attrsMap = attrs.$attr,
+          match,
+          className;
+
+      switch(nodeType) {
+        case 1: /* Element */
+          // use the node name: <directive>
+          addDirective(directives, camelCase(nodeName_(node).toLowerCase()), 'E');
+
+          // iterate over the attributes
+          for (var attr, name, nName, value, nAttrs = node.attributes,
+                   j = 0, jj = nAttrs && nAttrs.length; j < jj; j++) {
+            attr = nAttrs[j];
+            name = attr.name;
+            nName = camelCase(name.toLowerCase());
+            attrsMap[nName] = name;
+            attrs[nName] = value = trim((msie && name == 'href')
+                ? decodeURIComponent(node.getAttribute(name, 2))
+                : attr.value);
+            if (BOOLEAN_ATTR[nName]) {
+              attrs[nName] = true; // presence means true
             }
-          } catch(e) { $exceptionHandler(e); }
-        }
+            addAttrInterpolateDirective(directives, value, nName);
+            addDirective(directives, nName, 'A');
+          }
+
+          // use class as directive
+          className = node.className;
+          while (match = CLASS_DIRECTIVE_REGEXP.exec(className)) {
+            nName = camelCase(match[2]);
+            if (addDirective(directives, nName, 'C')) {
+              attrs[nName] = trim(match[3]);
+            }
+            className = className.substr(match.index + match[0].length);
+          }
+          break;
+        case 3: /* Text Node */
+          addTextInterpolateDirective(directives, node.nodeValue);
+          break;
+        case 8: /* Comment */
+          match = COMMENT_DIRECTIVE_REGEXP.exec(node.nodeValue);
+          if (match) {
+            nName = camelCase(match[1]);
+            if (addDirective(directives, nName, 'M')) {
+              attrs[nName] = trim(match[2]);
+            }
+          }
+          break;
       }
-      return match;
+
+      directives.sort(byPriority);
+      return directives;
     }
 
 
     /**
-     * When the element is replaced with HTML template then the new attributes
-     * on the template need to be merged with the existing attributes in the DOM.
-     * The desired effect is to have both of the attributes present.
+     * Once the directives have been collected their compile functions is executed. This method
+     * is responsible for inlining widget templates as well as terminating the application
+     * of the directives if the terminal directive has been reached..
      *
-     * @param {object} dst destination attributes (original DOM)
-     * @param {object} src source attributes (from the directive template)
-     */
-    function mergeTemplateAttributes(dst, src) {
-      var srcAttr = src.$attr,
-          dstAttr = dst.$attr,
-          element = dst.$element;
-      // reapply the old attributes to the new element
-      forEach(dst, function(value, key) {
-        if (key.charAt(0) != '$') {
-          dst.$set(key, value, srcAttr[key]);
-        }
-      });
-      // copy the new attributes on the old attrs object
-      forEach(src, function(value, key) {
-        if (key == 'class') {
-          element.addClass(value);
-        } else if (key == 'style') {
-          element.attr('style', element.attr('style') + ';' + value);
-        } else if (key.charAt(0) != '$' && !dst.hasOwnProperty(key)) {
-          dst[key] = value;
-          dstAttr[key] = srcAttr[key];
-        }
-      });
-    }
-
-    function assertNoDuplicateScope(newScopeDirective, directive, element) {
-      if (newScopeDirective) {
-        throw Error('Multiple directives [' + newScopeDirective.name + ', ' +
-          directive.name + '] asking for new scope on: ' +
-          startingTag(element));
-      }
-    }
-
-    function assertNoDuplicateTemplates(templateDirective, directive, element) {
-      if (templateDirective) {
-        throw Error('Multiple template directives [' + templateDirective.name + ', ' +
-          directive.name + '] asking for template on: ' +  startingTag(element));
-      }
-    }
-
-    /**
-     * Once the directives have been collected they are sorted and then applied to the element
-     * by priority order.
-     *
-     * @param {Array} directives Array of collected directives to execute their compile function
+     * @param {Array} directives Array of collected directives to execute their compile function.
+     *        this needs to be pre-sorted by priority order.
      * @param {Node} templateNode The raw DOM node to apply the compile functions to
      * @param {Object} templateAttrs The shared attribute function
+     * @param {Array} rootElement If we are working on the root of the compile tree then this
+     *        argument has the root jqLite array so that we can replace widgets on it.
      * @returns linkingFn
      */
     function applyDirectivesToNode(directives, templateNode, templateAttrs, rootElement) {
@@ -394,183 +441,69 @@ function $CompileProvider($injector) {
     }
 
 
-    function addTextInterpolateDirective(directives, text) {
-      var interpolateFn = $interpolate(text, true);
-      if (interpolateFn) {
-        directives.push({
-          priority: 0,
-          compile: valueFn(function(scope, node) {
-            var parent = node.parent(),
-                bindings = parent.data('$binding') || [];
-            bindings.push(interpolateFn);
-            parent.data('$binding', bindings).addClass('ng-binding');
-            scope.$watch(interpolateFn, function(scope, value) {
-              node[0].nodeValue = value;
-            });
-          })
-        });
+    /**
+     * looks up the directive and decorates it with exception handling and proper parameters. We
+     * call this the boundDirective.
+     *
+     * @param {string} name name of the directive to look up.
+     * @param {string} location The directive must be found in specific format.
+     *   String containing any of theses characters:
+     *
+     *   * `E`: element name
+     *   * `A': attribute
+     *   * `C`: class
+     *   * `M`: comment
+     * @returns true if directive was added.
+     */
+    function addDirective(tDirectives, name, location) {
+      var match = false;
+      if (directiveMap.hasOwnProperty(name)) {
+        for(var directive, directives = directiveMap[name],
+            i=0, ii = directives.length; i<ii; i++) {
+          try {
+            directive = directives[i]();
+            if (directive.restrict.indexOf(location) != -1) {
+              tDirectives.push(directive);
+              match = true;
+            }
+          } catch(e) { $exceptionHandler(e); }
+        }
       }
+      return match;
     }
 
-         
-    function addAttrInterpolateDirective(directives, value, name) {
-      var interpolateFn = $interpolate(value, true);
-      if (SIDE_EFFECT_ATTRS[name]) {
-        name = SIDE_EFFECT_ATTRS[name];
-        if (BOOLEAN_ATTR[name]) {
-          value = true;
+
+    /**
+     * When the element is replaced with HTML template then the new attributes
+     * on the template need to be merged with the existing attributes in the DOM.
+     * The desired effect is to have both of the attributes present.
+     *
+     * @param {object} dst destination attributes (original DOM)
+     * @param {object} src source attributes (from the directive template)
+     */
+    function mergeTemplateAttributes(dst, src) {
+      var srcAttr = src.$attr,
+          dstAttr = dst.$attr,
+          element = dst.$element;
+      // reapply the old attributes to the new element
+      forEach(dst, function(value, key) {
+        if (key.charAt(0) != '$') {
+          dst.$set(key, value, srcAttr[key]);
         }
-      } else if (!interpolateFn) {
-        // we are not a side-effect attr, and we have no side-effects -> ignore
-        return;
-      }
-      directives.push({
-        priority: 100,
-        compile: function(element, attr) {
-          if (interpolateFn) {
-            return function(scope, element, attr) {
-              scope.$watch(interpolateFn, function(scope, value){
-                attr.$set(name, value);
-              });
-            };
-          } else {
-            attr.$set(name, value);
-          }
+      });
+      // copy the new attributes on the old attrs object
+      forEach(src, function(value, key) {
+        if (key == 'class') {
+          element.addClass(value);
+        } else if (key == 'style') {
+          element.attr('style', element.attr('style') + ';' + value);
+        } else if (key.charAt(0) != '$' && !dst.hasOwnProperty(key)) {
+          dst[key] = value;
+          dstAttr[key] = srcAttr[key];
         }
       });
     }
 
-         
-    function collectDirectives(node, directives, attrs) {
-      var nodeType = node.nodeType,
-          attrsMap = attrs.$attr,
-          match,
-          className;
-
-      switch(nodeType) {
-        case 1: /* Element */
-          // use the node name: <directive>
-          addDirective(directives, camelCase(nodeName_(node).toLowerCase()), 'E');
-
-          // iterate over the attributes
-          for (var attr, name, nName, value, nAttrs = node.attributes,
-                   j = 0, jj = nAttrs && nAttrs.length; j < jj; j++) {
-            attr = nAttrs[j];
-            name = attr.name;
-            nName = camelCase(name.toLowerCase());
-            attrsMap[nName] = name;
-            attrs[nName] = value = trim((msie && name == 'href')
-                ? decodeURIComponent(node.getAttribute(name, 2))
-                : attr.value);
-            if (BOOLEAN_ATTR[nName]) {
-              attrs[nName] = true; // presence means true
-            }
-            addAttrInterpolateDirective(directives, value, nName);
-            addDirective(directives, nName, 'A');
-          }
-
-          // use class as directive
-          className = node.className;
-          while (match = CLASS_DIRECTIVE_REGEXP.exec(className)) {
-            nName = camelCase(match[2]);
-            if (addDirective(directives, nName, 'C')) {
-              attrs[nName] = trim(match[3]);
-            }
-            className = className.substr(match.index + match[0].length);
-          }
-          break;
-        case 3: /* Text Node */
-          addTextInterpolateDirective(directives, node.nodeValue);
-          break;
-        case 8: /* Comment */
-          match = COMMENT_DIRECTIVE_REGEXP.exec(node.nodeValue);
-          if (match) {
-            nName = camelCase(match[1]);
-            if (addDirective(directives, nName, 'M')) {
-              attrs[nName] = trim(match[2]);
-            }
-          }
-          break;
-      }
-
-      directives.sort(byPriority);
-      return directives;
-    }
-
-         
-    /**
-     * Compile function matches the nodeList against the directives, and then executes the
-     * directive template function.
-     * @param nodeList
-     * @returns {?function} A composite linking function of all of the matched directives or null.
-     */
-    function compileNodes(nodeList, rootElement) {
-      var linkingFns = [],
-          directiveLinkingFn, childLinkingFn, directives, attrs, linkingFnFound;
-
-      for(var i = 0, ii = nodeList.length; i < ii; i++) {
-        attrs = {
-          $attr: {},
-          $normalize: camelCase,
-          $set: attrSetter
-        },
-        directives = collectDirectives(nodeList[i], [], attrs);
-
-        directiveLinkingFn = (directives.length)
-            ? applyDirectivesToNode(directives, nodeList[i], attrs, rootElement)
-            : null;
-
-        childLinkingFn = (directiveLinkingFn && directiveLinkingFn.terminal)
-            ? null
-            : compileNodes(nodeList[i].childNodes);
-
-        linkingFns.push(directiveLinkingFn);
-        linkingFns.push(childLinkingFn);
-        linkingFnFound = (linkingFnFound || directiveLinkingFn || childLinkingFn);
-      }
-
-      // return a linking function if we have found anything, null otherwise
-      return linkingFnFound ? linkingFn : null;
-
-      function linkingFn(scope, nodeList, rootElement) {
-        if (linkingFns.length != nodeList.length * 2) {
-          throw Error('Template changed structure!');
-        }
-        for(var childLinkingFn, directiveLinkingFn, node,
-                i=0, n=0, ii=linkingFns.length; i<ii; n++) {
-          node = nodeList[n];
-          directiveLinkingFn = linkingFns[i++];
-          childLinkingFn = linkingFns[i++];
-
-          if (directiveLinkingFn) {
-            if (directiveLinkingFn.scope && !rootElement) {
-              jqLite(node).data('$scope', scope = scope.$new());
-            }
-            directiveLinkingFn(childLinkingFn, scope, node, rootElement);
-          } else if (childLinkingFn) {
-            childLinkingFn(scope, node.childNodes);
-          }
-        }
-      }
-    }
-
-    function replaceWith(rootElement, element, newNode) {
-      var oldNode = element[0],
-          parent = oldNode.parentNode,
-          i, ii;
-
-      if (rootElement) {
-        for(i = 0, ii = rootElement.length; i<ii; i++) {
-          if (rootElement[i] == oldNode) {
-            rootElement[i] = newNode;
-          }
-        }
-      }
-      if (parent) {
-        parent.replaceChild(newNode, oldNode);
-      }
-      element[0] = newNode;
-    }
 
     function compileTemplateUrl(directives, beforeWidgetLinkFn, tElement, tAttrs, rootElement) {
       var linkQueue = [],
@@ -637,6 +570,108 @@ function $CompileProvider($injector) {
         }
       };
     }
+
+
+    /**
+     * Sorting function for bound directives.
+     */
+    function byPriority(a, b) {
+      return b.priority - a.priority;
+    }
+
+
+    function assertNoDuplicateScope(newScopeDirective, directive, element) {
+      if (newScopeDirective) {
+        throw Error('Multiple directives [' + newScopeDirective.name + ', ' +
+          directive.name + '] asking for new scope on: ' +
+          startingTag(element));
+      }
+    }
+
+
+    function assertNoDuplicateTemplates(templateDirective, directive, element) {
+      if (templateDirective) {
+        throw Error('Multiple template directives [' + templateDirective.name + ', ' +
+          directive.name + '] asking for template on: ' +  startingTag(element));
+      }
+    }
+
+
+    function addTextInterpolateDirective(directives, text) {
+      var interpolateFn = $interpolate(text, true);
+      if (interpolateFn) {
+        directives.push({
+          priority: 0,
+          compile: valueFn(function(scope, node) {
+            var parent = node.parent(),
+                bindings = parent.data('$binding') || [];
+            bindings.push(interpolateFn);
+            parent.data('$binding', bindings).addClass('ng-binding');
+            scope.$watch(interpolateFn, function(scope, value) {
+              node[0].nodeValue = value;
+            });
+          })
+        });
+      }
+    }
+
+         
+    function addAttrInterpolateDirective(directives, value, name) {
+      var interpolateFn = $interpolate(value, true);
+      if (SIDE_EFFECT_ATTRS[name]) {
+        name = SIDE_EFFECT_ATTRS[name];
+        if (BOOLEAN_ATTR[name]) {
+          value = true;
+        }
+      } else if (!interpolateFn) {
+        // we are not a side-effect attr, and we have no side-effects -> ignore
+        return;
+      }
+      directives.push({
+        priority: 100,
+        compile: function(element, attr) {
+          if (interpolateFn) {
+            return function(scope, element, attr) {
+              scope.$watch(interpolateFn, function(scope, value){
+                attr.$set(name, value);
+              });
+            };
+          } else {
+            attr.$set(name, value);
+          }
+        }
+      });
+    }
+
+
+    /**
+     * This is a special jqLite.replaceWith, which can replace items which
+     * have no parents, provided that the jqLite collection is provided.
+     *
+     * @param rootElement The root of the compileTree. Needed so that we can replace widgets in
+     *        the root of the tree.
+     * @param element  The jqLite element which we are going to replace. We keep the shell, but
+     *        replace its reference.
+     * @param newNode the new node
+     */
+    function replaceWith(rootElement, element, newNode) {
+      var oldNode = element[0],
+          parent = oldNode.parentNode,
+          i, ii;
+
+      if (rootElement) {
+        for(i = 0, ii = rootElement.length; i<ii; i++) {
+          if (rootElement[i] == oldNode) {
+            rootElement[i] = newNode;
+          }
+        }
+      }
+      if (parent) {
+        parent.replaceChild(newNode, oldNode);
+      }
+      element[0] = newNode;
+    }
+
   }];
 
   // =============================
