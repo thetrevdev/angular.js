@@ -159,7 +159,6 @@ function $CompileProvider($injector) {
             directive.priority = directive.priority || 0;
             directive.name = name;
             directive.restrict = directive.restrict || 'EACM';
-            if (directive.templateUrl) directive.terminal = true; // TODO: isn't there a better way?
           }
           return directive;
         });
@@ -580,7 +579,7 @@ function $CompileProvider($injector) {
           originalWidgetNode = tElement[0],
           asyncWidgetDirective = directives.shift(),
           // The fact that we have to copy and path the directives seems wrong!
-          syncWidgetDirective = extend({}, asyncWidgetDirective, {templateUrl:null, terminal:null}),
+          syncWidgetDirective = extend({}, asyncWidgetDirective, {templateUrl:null}),
           html = tElement.html();
 
       tElement.html('');
