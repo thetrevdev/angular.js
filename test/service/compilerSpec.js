@@ -352,7 +352,14 @@ ddescribe('$compile', function() {
           }
         }));
 
-        it('should play nice with repeater', pending);
+        it('should play nice with repeater', inject(function($compile, $rootScope) {
+          element = $compile(
+            '<div>' +
+              '<div ng-repeat="i in [1,2]" replace>{{i}}; </div>' +
+            '</div>')($rootScope);
+          $rootScope.$digest();
+          expect(element.text()).toEqual('Hello: 1; Hello: 2; ');
+        }));
 
       });
 
@@ -525,8 +532,9 @@ ddescribe('$compile', function() {
         ));
 
 
-        it('should delay compile / linking functions until after template is resolved', inject(
-          function($compileProvider, log) {
+        describe('delay compile / linking functions until after template is resolved', function(){
+          var template;
+          beforeEach(inject(function($compileProvider, log) {
             function directive (name, priority, options) {
               $compileProvider.directive(name, valueFn(extend({
                  priority: priority,
@@ -541,14 +549,13 @@ ddescribe('$compile', function() {
             directive('second', 5, { templateUrl: 'second.html' });
             directive('third', 3);
             directive('last', 0);
-          }, function($compile, $rootScope, $httpBackend, log) {
+          }, function($compile, $httpBackend){
             $httpBackend.expect('GET', 'second.html').respond('<div third>{{1+2}}</div>');
-            element = $compile('<div><span first second last></span></div>')($rootScope);
-            expect(log).toEqual('first-C');
+            template = $compile('<div><span first second last></span></div>');
+          }));
 
-            log('FLUSH');
-            $httpBackend.flush();
-
+          afterEach(inject(function($rootScope) {
+            $rootScope.$digest();
             expect(log).toEqual(
               'first-C; FLUSH; second-C; third-C; last-C; ' +
               'first-L; second-L; third-L; last-L');
@@ -560,13 +567,59 @@ ddescribe('$compile', function() {
             expect(div.attr('last')).toEqual('');
 
             expect(div.text()).toEqual('3');
+          }));
 
-            //TODO: do the same on cloned elements as well
+
+          it('should flush after link', inject(function($rootScope, $httpBackend, log) {
+            element = template($rootScope);
+            expect(log).toEqual('first-C');
+
+            log('FLUSH');
+            $httpBackend.flush();
+          }));
+
+          it('should flush before link', inject(function($rootScope, $httpBackend, log) {
+            expect(log).toEqual('first-C');
+            log('FLUSH');
+            $httpBackend.flush();
+            expect(log).toEqual('first-C; FLUSH; second-C; third-C; last-C');
+
+            element = template($rootScope);
+          }));
+        });
+
+
+        it('should check that template has root element', inject(function($compile, $httpBackend) {
+          $httpBackend.expect('GET', 'hello.html').respond('before <b>mid</b> after');
+          $compile('<div hello></div>');
+          expect(function(){
+            $httpBackend.flush();
+          }).toThrow('Content must have exactly one root element: before <b>mid</b> after');
+        }));
+
+
+        it('should work when widget is in root element', inject(
+          function($compile, $httpBackend, $rootScope) {
+            $httpBackend.expect('GET', 'hello.html').respond('<span>3==<<content>></span>');
+            element = jqLite('<hello>{{1+2}}</hello>');
+            $compile(element)($rootScope);
+
+            $httpBackend.flush();
+            expect(element.text()).toEqual('3==3');
           }
         ));
 
-        it('should check that template has root element', pending);
-        it('should work when widget is in root element', pending);
+
+        it('should work when widget is a repeater', inject(
+          function($compile, $httpBackend, $rootScope) {
+            $httpBackend.expect('GET', 'hello.html').respond('<span>i=<<content>>;</span>');
+            element = jqLite('<div><hello ng-repeat="i in [1,2]">{{i}}</hello></div>');
+            $compile(element)($rootScope);
+
+            $httpBackend.flush();
+            expect(element.text()).toEqual('i=1;i=2;');
+          }
+        ));
       });
 
 
