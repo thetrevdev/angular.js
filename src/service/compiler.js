@@ -156,7 +156,7 @@ function $CompileProvider($injector) {
             directive.priority = directive.priority || 0;
             directive.name = name;
             directive.restrict = directive.restrict || 'EACM';
-            if (directive.templateUrl) directive.terminal = true;
+            if (directive.templateUrl) directive.terminal = true; // TODO: isn't there a better way?
           }
           return directive;
         });
@@ -286,7 +286,6 @@ function $CompileProvider($injector) {
      * @returns linkingFn
      */
     function applyDirectivesToNode(directives, templateNode, templateAttrs) {
-      directives.sort(byPriority);
       var terminalPriority = -Number.MAX_VALUE,
           preLinkingFns = [],
           postLinkingFns = [],
@@ -294,7 +293,7 @@ function $CompileProvider($injector) {
           templateDirective = null,
           delayLinkingFn = null,
           element = templateAttrs.$element = jqLite(templateNode),
-          directive, templateDirectives, template, newTemplateAttrs, linkingFn;
+          directive, linkingFn;
 
       // executes all directives on the current element
       for(var i = 0, ii = directives.length; i < ii; i++) {
@@ -309,25 +308,21 @@ function $CompileProvider($injector) {
           newScopeDirective = directive;
         }
 
-        if ((template = directive.html)) {
+        if ((directive.html)) {
           assertNoDuplicateTemplates(templateDirective, directive, element);
           templateDirective = directive;
-          template = jqLite(template.replace(CONTENT_REGEXP, element.html()));
+
+          var newTemplateAttrs = {$attr: {}},
+              template = jqLite(directive.html.replace(CONTENT_REGEXP, element.html()));
           // replace the element with the new element
           element.replaceWith(template);
           templateAttrs.$element = element = template;
           templateNode = element[0];
 
-          newTemplateAttrs = {$attr: {}};
-          templateDirectives = collectDirectives(templateNode, newTemplateAttrs);
+          directives = directives.concat(
+            collectDirectives(templateNode, directives.splice(i + 1), newTemplateAttrs));
           mergeTemplateAttributes(templateAttrs, newTemplateAttrs);
 
-          // take the remaining directives of old element and append them to the new directives
-          templateDirectives.concat(directives.splice(i + 1));
-          // resort the new directives
-          templateDirectives.sort(byPriority);
-          // splice the sorted new directives into the current directive list
-          directives = directives.concat(templateDirectives);
           ii = directives.length;
         }
 
@@ -335,10 +330,9 @@ function $CompileProvider($injector) {
           assertNoDuplicateTemplates(templateDirective, directive, element);
           templateDirective = directive;
           delayLinkingFn =
-            compileTemplateUrl(directive.templateUrl, compositeLinkFn, element, templateAttrs);
-        }
-
-        if (directive.compile) {
+            compileTemplateUrl(directives.splice(i), compositeLinkFn, element, templateAttrs);
+          ii = directives.length;
+        } else if (directive.compile) {
           try {
             linkingFn = directive.compile(element, templateAttrs);
             if (isFunction(linkingFn)) {
@@ -447,9 +441,8 @@ function $CompileProvider($injector) {
     }
 
          
-    function collectDirectives(node, attrs) {
+    function collectDirectives(node, directives, attrs) {
       var nodeType = node.nodeType,
-          directives = [],
           attrsMap = attrs.$attr,
           match,
           className;
@@ -500,6 +493,7 @@ function $CompileProvider($injector) {
           break;
       }
 
+      directives.sort(byPriority);
       return directives;
     }
 
@@ -520,7 +514,7 @@ function $CompileProvider($injector) {
           $normalize: camelCase,
           $set: attrSetter
         },
-        directives = collectDirectives(nodeList[i], attrs);
+        directives = collectDirectives(nodeList[i], [], attrs);
 
         directiveLinkingFn = (directives.length)
             ? applyDirectivesToNode(directives, nodeList[i], attrs)
@@ -560,26 +554,56 @@ function $CompileProvider($injector) {
       }
     }
 
+    function replaceWith(element, node) {
+      var parent = element[0].parentNode;
 
-    function compileTemplateUrl(templateUrl, linkFn, tElement, tAttrs) {
+      if (parent) {
+        parent.replaceChild(node, element[0]);
+      }
+      element[0] = node;
+    }
+
+    function compileTemplateUrl(directives, beforeWidgetLinkFn, tElement, tAttrs) {
       var linkQueue = [],
-          childrenLinkFn,
-          directiveLinkFn,
+          afterWidgetLinkFn,
+          afterWidgetChildrenLinkFn,
+          originalWidgetNode = tElement[0],
+          asyncWidgetDirective = directives.shift(),
+          // The fact that we have to copy and path the directives seems wrong!
+          syncWidgetDirective = extend({}, asyncWidgetDirective, {templateUrl:null, terminal:null}),
           html = tElement.html();
 
       tElement.html('');
 
       $http.
-        get(templateUrl, {cache: $templateCache}).
+        get(asyncWidgetDirective.templateUrl, {cache: $templateCache}).
         success(function(content) {
-          html = content.replace(CONTENT_REGEXP, html);
-          tElement.html(html);
-          childrenLinkFn = compileNodes(tElement.contents());
+          var tempTemplateAttrs = {$attr: {}},
+              templateNode = jqLite(content.replace(CONTENT_REGEXP, html))[0];
+
+          replaceWith(tElement, templateNode);
+          collectDirectives(tElement[0], directives, tempTemplateAttrs);
+          mergeTemplateAttributes(tAttrs, tempTemplateAttrs);
+
+          directives.unshift(syncWidgetDirective);
+          afterWidgetLinkFn = applyDirectivesToNode(directives, tElement, tAttrs);
+          afterWidgetChildrenLinkFn = compileNodes(tElement.contents());
+
 
           while(linkQueue.length) {
-            var cLinkNode = linkQueue.pop()
-            jqLite(cLinkNode).html(html);
-            linkFn(childrenLinkFn, linkQueue.pop(), cLinkNode);
+            var cLinkNode = linkQueue.pop(),
+                node = templateNode,
+                scope = linkQueue.pop();
+
+            if (cLinkNode !== originalWidgetNode) {
+              // it was cloned therefore we have to clone as well.
+              var parent = jqLite(cLinkNode).parent();
+              node = JQLiteClone(templateNode);
+              replaceWith(jqLite(cLinkNode), node);
+            }
+            afterWidgetLinkFn(function() {
+              beforeWidgetLinkFn(afterWidgetChildrenLinkFn, scope, node);
+            }, scope, node);
           }
           linkQueue = null;
         }).
@@ -587,12 +611,14 @@ function $CompileProvider($injector) {
           throw Error('Failed to load template: ' + config.url);
         });
 
-      return function(ignoreChildLinkingFn, scope, linkNode) {
+      return function(ignoreChildLinkingFn, scope, node) {
         if (linkQueue) {
           linkQueue.push(scope);
-          linkQueue.push(linkNode);
+          linkQueue.push(node);
         } else {
-          linkFn(childrenLinkFn, scope, linkNode);
+          afterWidgetLinkFn(function() {
+            beforeWidgetLinkFn(afterWidgetChildrenLinkFn, scope, node);
+          }, scope, node);
         }
       };
     }
