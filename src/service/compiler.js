@@ -357,12 +357,12 @@ function $CompileProvider($injector) {
           newScopeDirective = directive;
         }
 
-        if ((directive.html)) {
+        if ((directive.template)) {
           assertNoDuplicateTemplates(templateDirective, directive, element);
           templateDirective = directive;
 
           // replace the element with the new element
-          templateNode = jqLite(directive.html.replace(CONTENT_REGEXP, element.html()))[0];
+          templateNode = jqLite(directive.template.replace(CONTENT_REGEXP, element.html()))[0];
           replaceWith(rootElement, element, templateNode);
 
           var newTemplateAttrs = {$attr: {}};

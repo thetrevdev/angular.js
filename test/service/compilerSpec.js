@@ -1,6 +1,6 @@
 'use strict';
 
-ddescribe('$compile', function() {
+describe('$compile', function() {
   var element, log;
 
   beforeEach(inject(provideLog, function($provide, $compileProvider){
@@ -304,7 +304,7 @@ ddescribe('$compile', function() {
 
         beforeEach(inject(function($compileProvider) {
           $compileProvider.directive('replace', valueFn({
-            html: '<div class="log" style="width: 10px" high-log>Hello: <<CONTENT>></div>',
+            template: '<div class="log" style="width: 10px" high-log>Hello: <<CONTENT>></div>',
             compile: function(element, attr) {
               attr.$set('compiled', 'COMPILED');
               expect(element).toBe(attr.$element);
@@ -518,7 +518,7 @@ ddescribe('$compile', function() {
         it('should prevent multiple templates per element', inject(
           function($compileProvider) {
             $compileProvider.directive('sync', valueFn({
-              html: '<span></span>'
+              template: '<span></span>'
             }));
             $compileProvider.directive('async', valueFn({
               templateUrl: 'template.html'
