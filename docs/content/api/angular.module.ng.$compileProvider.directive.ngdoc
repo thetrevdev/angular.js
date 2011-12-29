@@ -306,22 +306,22 @@ compiler}. The attributes are:
   * `terminal` - If set to true then the current `priority` will be the last set of directives
     which will execute (this means that any directives at the current priority will still execute
     as the order of execution on same `priority` is undefined).
-    
+
   * `scope` - If set to true, then a new scope will be created for this directive. It is an error
     to have two directives on the same element both requesting new scope. The new scope rule does
     not apply for the root of the template since the root of the template always gets a new scope.
-    
-  * `restrict` - String of subset of `EACM` which restricts the directive to a specific directive 
+
+  * `restrict` - String of subset of `EACM` which restricts the directive to a specific directive
     declaration style.
-  
+
     * `E` - Element name: `<my-directive></my-directive>`
     * `A` - Attribute: `<div my-directive="exp"></div>`
     * `C` - Class: `<div class="my-directive: exp;"></div>`
     * `M` - Comment: `<!-- directive: my-directive exp -->`
-    
+
   * `template` - replace the current element with the contents of the HTML. The HTML may have
-    `<<content>>` string embedded in itself, in which case the current element content 
-    will be transferred there. The replacement process migrates all of the attributes / classes 
+    `<<content>>` string embedded in itself, in which case the current element content
+    will be transferred there. The replacement process migrates all of the attributes / classes
     from the old element to the new one. See Creating Widgets section below for more information.
 
   * `templateURL` - Same as `template` but the template is loaded from the specified URL. Because
@@ -410,7 +410,7 @@ It is often desirable to replace a single directive with a more complex DOM stru
 allows the directives to become a short hand for reusable components from which applications
 can be built.
 
-Following is an example of building a reusable widget. 
+Following is an example of building a reusable widget.
 
 
 <doc:example module="zippyModule">
@@ -425,9 +425,9 @@ Following is an example of building a reusable widget.
        $compileProvider.directive('zippy', function(){
          return {
            // This HTML will replace the zippy directive.
-           template: '<div>' + 
+           template: '<div>' +
                        '<div class="title"></div>' +
-                       '<div class="body"><<content>></div>' + 
+                       '<div class="body"><<content>></div>' +
                      '</div>',
            // The linking function will add behavior to the template
            link: function(scope, element, attrs) {
@@ -438,7 +438,7 @@ Following is an example of building a reusable widget.
 
              // Watch the zippy-title attribute, copy changes to title element
              scope.$watch(
-               function(){ return attrs.zippyTitle; }, 
+               function(){ return attrs.zippyTitle; },
                function(s, value) { return title.text(value); }
              );
 
@@ -482,7 +482,7 @@ Following is an example of building a reusable widget.
    </style>
    <div ng-controller="Ctrl">
      Title: <input ng-model="title"> <br>
-     Text: <textarea ng-model="text"></textarea> 
+     Text: <textarea ng-model="text"></textarea>
      <hr>
      <div class="zippy" zippy-title="Details: {{title}}...">{{text}}</div>
    </div>
@@ -493,11 +493,11 @@ Following is an example of building a reusable widget.
       input('text').enter('TEXT');
       expect(binding('title')).toEqual('TITLE');
       expect(binding('text')).toEqual('TEXT');
-      
+
       expect(element('.zippy').prop('className')).toMatch(/closed/);
       element('.zippy > .title').click();
       expect(element('.zippy').prop('className')).toMatch(/opened/);
-    }); 
+    });
   </doc:scenario>
 </doc:example>
 

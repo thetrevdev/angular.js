@@ -195,11 +195,12 @@ function $CompileProvider($injector) {
 
     /**
      * Compile function matches each node in nodeList against the directives. Once all directives
-     * are collected their compile functions are executed. The result is a linking function for
-     * the nodeList.
+     * for a particular node are collected their compile functions are executed. The compile
+     * functions return values - the linking functions - are combined into a composite linking
+     * function, which is the a linking function for the node.
      *
-     * @param nodeList an array of nodes to compile
-     * @param rootElement If the nodeList is the root of the compilation tree then the
+     * @param {NodeList} nodeList an array of nodes to compile
+     * @param {DOMElement=} rootElement If the nodeList is the root of the compilation tree then the
      *        rootElement must be set the jqLite collection of the compile root. This is
      *        needed so that the jqLite collection items can be replaced with widgets.
      * @returns {?function} A composite linking function of all of the matched directives or null.
@@ -330,7 +331,7 @@ function $CompileProvider($injector) {
      *        this needs to be pre-sorted by priority order.
      * @param {Node} templateNode The raw DOM node to apply the compile functions to
      * @param {Object} templateAttrs The shared attribute function
-     * @param {Array} rootElement If we are working on the root of the compile tree then this
+     * @param {DOMElement} rootElement If we are working on the root of the compile tree then this
      *        argument has the root jqLite array so that we can replace widgets on it.
      * @returns linkingFn
      */
@@ -340,7 +341,7 @@ function $CompileProvider($injector) {
           postLinkingFns = [],
           newScopeDirective = null,
           templateDirective = null,
-          delayLinkingFn = null,
+          delayedLinkingFn = null,
           element = templateAttrs.$element = jqLite(templateNode),
           directive, linkingFn;
 
@@ -353,19 +354,25 @@ function $CompileProvider($injector) {
         }
 
         if (directive.scope) {
-          assertNoDuplicateScope(newScopeDirective, directive, element);
+          assertNoDuplicate('new scope', newScopeDirective, directive, element);
           newScopeDirective = directive;
         }
 
-        if ((directive.template)) {
-          assertNoDuplicateTemplates(templateDirective, directive, element);
+        if (directive.template) {
+          assertNoDuplicate('template', templateDirective, directive, element);
           templateDirective = directive;
 
-          // replace the element with the new element
+          // include the contents of the original element into the template and replace the element
           templateNode = jqLite(directive.template.replace(CONTENT_REGEXP, element.html()))[0];
           replaceWith(rootElement, element, templateNode);
 
           var newTemplateAttrs = {$attr: {}};
+
+          // combine directives from the original node and from the template:
+          // - take the array of directives for this element
+          // - split it into two parts, those that were already applied and those that weren't
+          // - collect directives from the template, add them to the second group and sort them
+          // - append the second group with new directives to the first group
           directives = directives.concat(
             collectDirectives(templateNode, directives.splice(i + 1), newTemplateAttrs));
           mergeTemplateAttributes(templateAttrs, newTemplateAttrs);
@@ -374,10 +381,10 @@ function $CompileProvider($injector) {
         }
 
         if (directive.templateUrl) {
-          assertNoDuplicateTemplates(templateDirective, directive, element);
+          assertNoDuplicate('template', templateDirective, directive, element);
           templateDirective = directive;
-          delayLinkingFn =
-            compileTemplateUrl(directives.splice(i), compositeLinkFn, element, templateAttrs, rootElement);
+          delayedLinkingFn = compileTemplateUrl(
+              directives.splice(i), compositeLinkFn, element, templateAttrs, rootElement);
           ii = directives.length;
         } else if (directive.compile) {
           try {
@@ -401,7 +408,7 @@ function $CompileProvider($injector) {
       compositeLinkFn.scope = !!newScopeDirective;
 
       // if we have templateUrl, then we have to delay linking
-      return delayLinkingFn || compositeLinkFn;
+      return delayedLinkingFn || compositeLinkFn;
 
       ////////////////////
 
@@ -511,18 +518,17 @@ function $CompileProvider($injector) {
           afterWidgetChildrenLinkFn,
           originalWidgetNode = tElement[0],
           asyncWidgetDirective = directives.shift(),
-          // The fact that we have to copy and path the directives seems wrong!
+          // The fact that we have to copy and patch the directive seems wrong!
           syncWidgetDirective = extend({}, asyncWidgetDirective, {templateUrl:null}),
           html = tElement.html();
 
       tElement.html('');
 
-      $http.
-        get(asyncWidgetDirective.templateUrl, {cache: $templateCache}).
+      $http.get(asyncWidgetDirective.templateUrl, {cache: $templateCache}).
         success(function(content) {
           content = trim(content);
           if (!content.match(HAS_ROOT_ELEMENT)) {
-            throw Error('Content must have exactly one root element: ' + content);
+            throw Error('Template must have exactly one root element: ' + content);
           }
 
           var tempTemplateAttrs = {$attr: {}},
@@ -580,19 +586,10 @@ function $CompileProvider($injector) {
     }
 
 
-    function assertNoDuplicateScope(newScopeDirective, directive, element) {
-      if (newScopeDirective) {
-        throw Error('Multiple directives [' + newScopeDirective.name + ', ' +
-          directive.name + '] asking for new scope on: ' +
-          startingTag(element));
-      }
-    }
-
-
-    function assertNoDuplicateTemplates(templateDirective, directive, element) {
-      if (templateDirective) {
-        throw Error('Multiple template directives [' + templateDirective.name + ', ' +
-          directive.name + '] asking for template on: ' +  startingTag(element));
+    function assertNoDuplicate(what, previousDirective, directive, element) {
+      if (previousDirective) {
+        throw Error('Multiple directives [' + previousDirective.name + ', ' +
+          directive.name + '] asking for ' + what + ' on: ' +  startingTag(element));
       }
     }
 
@@ -646,13 +643,13 @@ function $CompileProvider($injector) {
 
     /**
      * This is a special jqLite.replaceWith, which can replace items which
-     * have no parents, provided that the jqLite collection is provided.
+     * have no parents, provided that the containing jqLite collection is provided.
      *
-     * @param rootElement The root of the compileTree. Needed so that we can replace widgets in
-     *        the root of the tree.
-     * @param element  The jqLite element which we are going to replace. We keep the shell, but
-     *        replace its reference.
-     * @param newNode the new node
+     * @param {JqLite=} rootElement The root of the compile tree. Used so that we can replace nodes
+     *    in the root of the tree.
+     * @param {JqLite} element The jqLite element which we are going to replace. We keep the shell,
+     *    but replace its DOM node reference.
+     * @param {Node} newNode The new DOM node.
      */
     function replaceWith(rootElement, element, newNode) {
       var oldNode = element[0],
@@ -671,10 +668,8 @@ function $CompileProvider($injector) {
       }
       element[0] = newNode;
     }
-
   }];
 
-  // =============================
 
   /**
    * Set a normalized attribute on the element in a way such that all directives
