@@ -297,11 +297,19 @@ describe('$compile', function() {
       });
 
 
-      describe('html', function() {
+      describe('template', function() {
 
 
         beforeEach(module(function($compileProvider) {
           $compileProvider.directive('replace', valueFn({
+            replace: true,
+            template: '<div class="log" style="width: 10px" high-log>Hello: <<CONTENT>></div>',
+            compile: function(element, attr) {
+              attr.$set('compiled', 'COMPILED');
+              expect(element).toBe(attr.$element);
+            }
+          }));
+          $compileProvider.directive('append', valueFn({
             template: '<div class="log" style="width: 10px" high-log>Hello: <<CONTENT>></div>',
             compile: function(element, attr) {
               attr.$set('compiled', 'COMPILED');
@@ -318,6 +326,13 @@ describe('$compile', function() {
         }));
 
 
+        it('should append element with template', inject(function($compile, $rootScope) {
+          element = $compile('<div><div append>content</div><div>')($rootScope);
+          expect(element.text()).toEqual('Hello: content');
+          expect(element.find('div').attr('compiled')).toEqual('COMPILED');
+        }));
+
+
         it('should compile replace template', inject(function($compile, $rootScope, log) {
           element = $compile('<div><div replace medium-log>{{ "angular"  }}</div><div>')
             ($rootScope);
@@ -325,6 +340,15 @@ describe('$compile', function() {
           expect(element.text()).toEqual('Hello: angular');
           // HIGH goes after MEDIUM since it executes as part of replaced template
           expect(log).toEqual('MEDIUM; HIGH; LOG');
+        }));
+
+
+        it('should compile append template', inject(function($compile, $rootScope, log) {
+          element = $compile('<div><div append medium-log>{{ "angular"  }}</div><div>')
+            ($rootScope);
+          $rootScope.$digest();
+          expect(element.text()).toEqual('Hello: angular');
+          expect(log).toEqual('HIGH; LOG; MEDIUM');
         }));
 
 
@@ -350,7 +374,7 @@ describe('$compile', function() {
           }
         }));
 
-        it('should play nice with repeater', inject(function($compile, $rootScope) {
+        it('should play nice with repeater when inline', inject(function($compile, $rootScope) {
           element = $compile(
             '<div>' +
               '<div ng-repeat="i in [1,2]" replace>{{i}}; </div>' +
@@ -359,6 +383,15 @@ describe('$compile', function() {
           expect(element.text()).toEqual('Hello: 1; Hello: 2; ');
         }));
 
+
+        it('should play nice with repeater when append', inject(function($compile, $rootScope) {
+          element = $compile(
+            '<div>' +
+              '<div ng-repeat="i in [1,2]" append>{{i}}; </div>' +
+            '</div>')($rootScope);
+          $rootScope.$digest();
+          expect(element.text()).toEqual('Hello: 1; Hello: 2; ');
+        }));
       });
 
 
@@ -366,14 +399,11 @@ describe('$compile', function() {
 
         beforeEach(module(
           function($compileProvider) {
-            $compileProvider.directive('hello', valueFn({
-              templateUrl: 'hello.html'
-            }));
-            $compileProvider.directive('cau', valueFn({
-              templateUrl: 'cau.html'
-            }));
+            $compileProvider.directive('hello', valueFn({ templateUrl: 'hello.html' }));
+            $compileProvider.directive('cau', valueFn({ templateUrl:'cau.html' }));
+
             $compileProvider.directive('cError', valueFn({
-              templateUrl: 'error.html',
+              templateUrl:'error.html',
               compile: function() {
                 throw Error('cError');
               }
@@ -384,13 +414,39 @@ describe('$compile', function() {
                 throw Error('lError');
               }
             }));
+
+
+            $compileProvider.directive('iHello', valueFn({
+              replace: true,
+              templateUrl: 'hello.html'
+            }));
+            $compileProvider.directive('iCau', valueFn({
+              replace: true,
+              templateUrl:'cau.html'
+            }));
+
+            $compileProvider.directive('iCError', valueFn({
+              replace: true,
+              templateUrl:'error.html',
+              compile: function() {
+                throw Error('cError');
+              }
+            }));
+            $compileProvider.directive('iLError', valueFn({
+              replace: true,
+              templateUrl: 'error.html',
+              compile: function() {
+                throw Error('lError');
+              }
+            }));
+
           }
         ));
 
 
-        it('should fetch template via $http and cache it in $templateCache', inject(
+        it('should append template via $http and cache it in $templateCache', inject(
             function($compile, $httpBackend, $templateCache, $rootScope, $browser) {
-              $httpBackend.expect('GET', 'hello.html').respond('<span>Hello!</span>');
+              $httpBackend.expect('GET', 'hello.html').respond('<span>Hello!</span> World!');
               $templateCache.put('cau.html', '<span>Cau!</span>');
               element = $compile('<div><hello>ignore</hello><cau>ignore</cau></div>')($rootScope);
               expect(sortedHtml(element)).
@@ -400,7 +456,31 @@ describe('$compile', function() {
 
 
               expect(sortedHtml(element)).
-                  toEqual('<div><hello></hello><span>Cau!</span></div>');
+                  toEqual('<div><hello></hello><cau><span>Cau!</span></cau></div>');
+
+              $httpBackend.flush();
+              expect(sortedHtml(element)).toEqual(
+                  '<div>' +
+                    '<hello><span>Hello!</span> World!</hello>' +
+                    '<cau><span>Cau!</span></cau>' +
+                  '</div>');
+            }
+        ));
+
+
+        it('should inline template via $http and cache it in $templateCache', inject(
+            function($compile, $httpBackend, $templateCache, $rootScope, $browser) {
+              $httpBackend.expect('GET', 'hello.html').respond('<span>Hello!</span>');
+              $templateCache.put('cau.html', '<span>Cau!</span>');
+              element = $compile('<div><i-hello>ignore</i-hello><i-cau>ignore</i-cau></div>')($rootScope);
+              expect(sortedHtml(element)).
+                  toEqual('<div><i-hello></i-hello><i-cau></i-cau></div>');
+
+              $rootScope.$digest();
+
+
+              expect(sortedHtml(element)).
+                  toEqual('<div><i-hello></i-hello><span>Cau!</span></div>');
 
               $httpBackend.flush();
               expect(sortedHtml(element)).
@@ -409,11 +489,25 @@ describe('$compile', function() {
         ));
 
 
-        it('should compile, link and flush the template', inject(
+        it('should compile, link and flush the template append', inject(
             function($compile, $templateCache, $rootScope, $browser) {
               $templateCache.put('hello.html', '<span>Hello, {{name}}!</span>');
               $rootScope.name = 'Elvis';
               element = $compile('<div><hello></hello></div>')($rootScope);
+
+              $rootScope.$digest();
+
+              expect(sortedHtml(element)).
+                  toEqual('<div><hello><span>Hello, Elvis!</span></hello></div>');
+            }
+        ));
+
+
+        it('should compile, link and flush the template inline', inject(
+            function($compile, $templateCache, $rootScope, $browser) {
+              $templateCache.put('hello.html', '<span>Hello, {{name}}!</span>');
+              $rootScope.name = 'Elvis';
+              element = $compile('<div><i-hello></i-hello></div>')($rootScope);
 
               $rootScope.$digest();
 
@@ -423,11 +517,26 @@ describe('$compile', function() {
         ));
 
 
-        it('should compile, flush and link the template', inject(
+        it('should compile, flush and link the template append', inject(
             function($compile, $templateCache, $rootScope, $browser) {
               $templateCache.put('hello.html', '<span>Hello, {{name}}!</span>');
               $rootScope.name = 'Elvis';
               var template = $compile('<div><hello></hello></div>');
+
+              element = template($rootScope);
+              $rootScope.$digest();
+
+              expect(sortedHtml(element)).
+                  toEqual('<div><hello><span>Hello, Elvis!</span></hello></div>');
+            }
+        ));
+
+
+        it('should compile, flush and link the template inline', inject(
+            function($compile, $templateCache, $rootScope, $browser) {
+              $templateCache.put('hello.html', '<span>Hello, {{name}}!</span>');
+              $rootScope.name = 'Elvis';
+              var template = $compile('<div><i-hello></i-hello></div>');
 
               element = template($rootScope);
               $rootScope.$digest();
@@ -438,7 +547,7 @@ describe('$compile', function() {
         ));
 
 
-        it('should resolve widgets after cloning', function() {
+        it('should resolve widgets after cloning in append mode', function() {
           module(function($exceptionHandlerProvider) {
             $exceptionHandlerProvider.mode('log');
           });
@@ -479,12 +588,65 @@ describe('$compile', function() {
         });
 
 
-        it('should be implicitly terminal and not compile placeholder content', inject(
+        it('should resolve widgets after cloning in inline mode', function() {
+          module(function($exceptionHandlerProvider) {
+            $exceptionHandlerProvider.mode('log');
+          });
+          inject(function($compile, $templateCache, $rootScope, $httpBackend, $browser,
+                   $exceptionHandler) {
+            $httpBackend.expect('GET', 'hello.html').respond('<span>{{greeting}} </span>');
+            $httpBackend.expect('GET', 'error.html').respond('<div></div>');
+            $templateCache.put('cau.html', '<span>{{name}}</span>');
+            $rootScope.greeting = 'Hello';
+            $rootScope.name = 'Elvis';
+            var template = $compile(
+              '<div>' +
+                '<i-hello></i-hello>' +
+                '<i-cau></i-cau>' +
+                '<i-c-error></i-c-error>' +
+                '<i-l-error></i-l-error>' +
+              '</div>');
+            var e1;
+            var e2;
+
+            e1 = template($rootScope.$new(), noop); // clone
+            expect(e1.text()).toEqual('');
+
+            $httpBackend.flush();
+
+            e2 = template($rootScope.$new(), noop); // clone
+            $rootScope.$digest();
+            expect(e1.text()).toEqual('Hello Elvis');
+            expect(e2.text()).toEqual('Hello Elvis');
+
+            expect($exceptionHandler.errors.length).toEqual(2);
+            expect($exceptionHandler.errors[0][0].message).toEqual('cError');
+            expect($exceptionHandler.errors[1][0].message).toEqual('lError');
+
+            dealoc(e1);
+            dealoc(e2);
+          });
+        });
+
+
+        it('should be implicitly terminal and not compile placeholder content in append', inject(
             function($compile, $templateCache, $rootScope, log) {
               // we can't compile the contents because that would result in a memory leak
 
               $templateCache.put('hello.html', 'Hello!');
               element = $compile('<div><hello><div log></div></hello></div>')($rootScope);
+
+              expect(log).toEqual('');
+            }
+        ));
+
+
+        it('should be implicitly terminal and not compile placeholder content in inline', inject(
+            function($compile, $templateCache, $rootScope, log) {
+              // we can't compile the contents because that would result in a memory leak
+
+              $templateCache.put('hello.html', 'Hello!');
+              element = $compile('<div><i-hello><div log></div></i-hello></div>')($rootScope);
 
               expect(log).toEqual('');
             }
@@ -516,7 +678,7 @@ describe('$compile', function() {
           inject(function($compile){
             expect(function() {
               $compile('<div><div class="sync async"></div></div>');
-            }).toThrow('Multiple directives [sync, async] asking for template on: <span class="sync async">');
+            }).toThrow('Multiple directives [sync, async] asking for template on: <div class="sync async">');
           });
         });
 
@@ -540,53 +702,127 @@ describe('$compile', function() {
             directive('second', 5, { templateUrl: 'second.html' });
             directive('third', 3);
             directive('last', 0);
+
+            directive('iFirst', 10, {replace: true});
+            directive('iSecond', 5, {replace: true, templateUrl: 'second.html' });
+            directive('iThird', 3, {replace: true});
+            directive('iLast', 0, {replace: true});
           }));
-          beforeEach(inject(function($compile, $httpBackend){
+
+          it('should flush after link append', inject(
+              function($compile, $rootScope, $httpBackend, log) {
             $httpBackend.expect('GET', 'second.html').respond('<div third>{{1+2}}</div>');
             template = $compile('<div><span first second last></span></div>');
-          }));
+            element = template($rootScope);
+            expect(log).toEqual('first-C');
 
-          afterEach(inject(function($rootScope, log) {
+            log('FLUSH');
+            $httpBackend.flush();
             $rootScope.$digest();
             expect(log).toEqual(
-              'first-C; FLUSH; second-C; third-C; last-C; ' +
-              'first-L; second-L; third-L; last-L');
+              'first-C; FLUSH; second-C; last-C; third-C; ' +
+              'third-L; first-L; second-L; last-L');
+
+            var span = element.find('span');
+            expect(span.attr('first')).toEqual('');
+            expect(span.attr('second')).toEqual('');
+            expect(span.find('div').attr('third')).toEqual('');
+            expect(span.attr('last')).toEqual('');
+
+            expect(span.text()).toEqual('3');
+          }));
+
+
+          it('should flush after link inline', inject(
+              function($compile, $rootScope, $httpBackend, log) {
+            $httpBackend.expect('GET', 'second.html').respond('<div i-third>{{1+2}}</div>');
+            template = $compile('<div><span i-first i-second i-last></span></div>');
+            element = template($rootScope);
+            expect(log).toEqual('iFirst-C');
+
+            log('FLUSH');
+            $httpBackend.flush();
+            $rootScope.$digest();
+            expect(log).toEqual(
+              'iFirst-C; FLUSH; iSecond-C; iThird-C; iLast-C; ' +
+              'iFirst-L; iSecond-L; iThird-L; iLast-L');
 
             var div = element.find('div');
-            expect(div.attr('first')).toEqual('');
-            expect(div.attr('second')).toEqual('');
-            expect(div.attr('third')).toEqual('');
-            expect(div.attr('last')).toEqual('');
+            expect(div.attr('i-first')).toEqual('');
+            expect(div.attr('i-second')).toEqual('');
+            expect(div.attr('i-third')).toEqual('');
+            expect(div.attr('i-last')).toEqual('');
 
             expect(div.text()).toEqual('3');
           }));
 
 
-          it('should flush after link', inject(function($rootScope, $httpBackend, log) {
-            element = template($rootScope);
+          it('should flush before link append', inject(
+              function($compile, $rootScope, $httpBackend, log) {
+            $httpBackend.expect('GET', 'second.html').respond('<div third>{{1+2}}</div>');
+            template = $compile('<div><span first second last></span></div>');
             expect(log).toEqual('first-C');
-
             log('FLUSH');
             $httpBackend.flush();
+            expect(log).toEqual('first-C; FLUSH; second-C; last-C; third-C');
+
+            element = template($rootScope);
+            $rootScope.$digest();
+            expect(log).toEqual(
+              'first-C; FLUSH; second-C; last-C; third-C; ' +
+              'third-L; first-L; second-L; last-L');
+
+            var span = element.find('span');
+            expect(span.attr('first')).toEqual('');
+            expect(span.attr('second')).toEqual('');
+            expect(span.find('div').attr('third')).toEqual('');
+            expect(span.attr('last')).toEqual('');
+
+            expect(span.text()).toEqual('3');
           }));
 
-          it('should flush before link', inject(function($rootScope, $httpBackend, log) {
-            expect(log).toEqual('first-C');
+
+          it('should flush before link inline', inject(
+              function($compile, $rootScope, $httpBackend, log) {
+            $httpBackend.expect('GET', 'second.html').respond('<div i-third>{{1+2}}</div>');
+            template = $compile('<div><span i-first i-second i-last></span></div>');
+            expect(log).toEqual('iFirst-C');
             log('FLUSH');
             $httpBackend.flush();
-            expect(log).toEqual('first-C; FLUSH; second-C; third-C; last-C');
+            expect(log).toEqual('iFirst-C; FLUSH; iSecond-C; iThird-C; iLast-C');
 
             element = template($rootScope);
+            $rootScope.$digest();
+            expect(log).toEqual(
+              'iFirst-C; FLUSH; iSecond-C; iThird-C; iLast-C; ' +
+              'iFirst-L; iSecond-L; iThird-L; iLast-L');
+
+            var div = element.find('div');
+            expect(div.attr('i-first')).toEqual('');
+            expect(div.attr('i-second')).toEqual('');
+            expect(div.attr('i-third')).toEqual('');
+            expect(div.attr('i-last')).toEqual('');
+
+            expect(div.text()).toEqual('3');
           }));
         });
 
 
         it('should check that template has root element', inject(function($compile, $httpBackend) {
           $httpBackend.expect('GET', 'hello.html').respond('before <b>mid</b> after');
-          $compile('<div hello></div>');
+          $compile('<div i-hello></div>');
           expect(function(){
             $httpBackend.flush();
           }).toThrow('Template must have exactly one root element: before <b>mid</b> after');
+        }));
+
+
+        it('should allow multiple elements in template', inject(function($compile, $httpBackend) {
+          $httpBackend.expect('GET', 'hello.html').respond('before <b>mid</b> after');
+          element = jqLite('<div hello></div>');
+          $compile(element);
+          $httpBackend.flush();
+          expect(element.text()).toEqual('before mid after');
         }));
 
 

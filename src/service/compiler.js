@@ -367,28 +367,33 @@ function $CompileProvider($provide) {
           templateDirective = directive;
 
           // include the contents of the original element into the template and replace the element
-          templateNode = jqLite(directive.template.replace(CONTENT_REGEXP, element.html()))[0];
-          replaceWith(rootElement, element, templateNode);
+          var content = directive.template.replace(CONTENT_REGEXP, element.html());
+          templateNode = jqLite(content)[0];
+          if (directive.replace) {
+            replaceWith(rootElement, element, templateNode);
 
-          var newTemplateAttrs = {$attr: {}};
+            var newTemplateAttrs = {$attr: {}};
 
-          // combine directives from the original node and from the template:
-          // - take the array of directives for this element
-          // - split it into two parts, those that were already applied and those that weren't
-          // - collect directives from the template, add them to the second group and sort them
-          // - append the second group with new directives to the first group
-          directives = directives.concat(
-            collectDirectives(templateNode, directives.splice(i + 1), newTemplateAttrs));
-          mergeTemplateAttributes(templateAttrs, newTemplateAttrs);
+            // combine directives from the original node and from the template:
+            // - take the array of directives for this element
+            // - split it into two parts, those that were already applied and those that weren't
+            // - collect directives from the template, add them to the second group and sort them
+            // - append the second group with new directives to the first group
+            directives = directives.concat(
+              collectDirectives(templateNode, directives.splice(i + 1), newTemplateAttrs));
+            mergeTemplateAttributes(templateAttrs, newTemplateAttrs);
 
-          ii = directives.length;
+            ii = directives.length;
+          } else {
+            element.html(content);
+          }
         }
 
         if (directive.templateUrl) {
           assertNoDuplicate('template', templateDirective, directive, element);
           templateDirective = directive;
-          delayedLinkingFn = compileTemplateUrl(
-              directives.splice(i), compositeLinkFn, element, templateAttrs, rootElement);
+          delayedLinkingFn = compileTemplateUrl(directives.splice(i), compositeLinkFn, element,
+              templateAttrs, rootElement, directive.replace);
           ii = directives.length;
         } else if (directive.compile) {
           try {
@@ -517,7 +522,8 @@ function $CompileProvider($provide) {
     }
 
 
-    function compileTemplateUrl(directives, beforeWidgetLinkFn, tElement, tAttrs, rootElement) {
+    function compileTemplateUrl(directives, beforeWidgetLinkFn, tElement, tAttrs, rootElement,
+                                replace) {
       var linkQueue = [],
           afterWidgetLinkFn,
           afterWidgetChildrenLinkFn,
@@ -531,17 +537,23 @@ function $CompileProvider($provide) {
 
       $http.get(asyncWidgetDirective.templateUrl, {cache: $templateCache}).
         success(function(content) {
-          content = trim(content);
-          if (!content.match(HAS_ROOT_ELEMENT)) {
+          content = trim(content).replace(CONTENT_REGEXP, html);
+          if (replace && !content.match(HAS_ROOT_ELEMENT)) {
             throw Error('Template must have exactly one root element: ' + content);
           }
 
-          var tempTemplateAttrs = {$attr: {}},
-              templateNode = jqLite(content.replace(CONTENT_REGEXP, html))[0];
+          var templateNode, tempTemplateAttrs;
 
-          replaceWith(rootElement, tElement, templateNode);
-          collectDirectives(tElement[0], directives, tempTemplateAttrs);
-          mergeTemplateAttributes(tAttrs, tempTemplateAttrs);
+          if (replace) {
+            tempTemplateAttrs = {$attr: {}};
+            templateNode = jqLite(content)[0];
+            replaceWith(rootElement, tElement, templateNode);
+            collectDirectives(tElement[0], directives, tempTemplateAttrs);
+            mergeTemplateAttributes(tAttrs, tempTemplateAttrs);
+          } else {
+            templateNode = tElement[0];
+            tElement.html(content);
+          }
 
           directives.unshift(syncWidgetDirective);
           afterWidgetLinkFn = applyDirectivesToNode(directives, tElement, tAttrs);
