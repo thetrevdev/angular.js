@@ -1,6 +1,6 @@
 'use strict';
 
-describe('$compile', function() {
+d6escribe('$compile', function() {
   var element;
 
   beforeEach(module(provideLog, function($provide, $compileProvider){
@@ -448,21 +448,21 @@ describe('$compile', function() {
             function($compile, $httpBackend, $templateCache, $rootScope, $browser) {
               $httpBackend.expect('GET', 'hello.html').respond('<span>Hello!</span> World!');
               $templateCache.put('cau.html', '<span>Cau!</span>');
-              element = $compile('<div><hello>ignore</hello><cau>ignore</cau></div>')($rootScope);
+              element = $compile('<div><b class="hello">ignore</b><b class=cau>ignore</b></div>')($rootScope);
               expect(sortedHtml(element)).
-                  toEqual('<div><hello></hello><cau></cau></div>');
+                  toEqual('<div><b class="hello"></b><b class="cau"></b></div>');
 
               $rootScope.$digest();
 
 
               expect(sortedHtml(element)).
-                  toEqual('<div><hello></hello><cau><span>Cau!</span></cau></div>');
+                  toEqual('<div><b class="hello"></b><b class="cau"><span>Cau!</span></b></div>');
 
               $httpBackend.flush();
               expect(sortedHtml(element)).toEqual(
                   '<div>' +
-                    '<hello><span>Hello!</span> World!</hello>' +
-                    '<cau><span>Cau!</span></cau>' +
+                    '<b class="hello"><span>Hello!</span> World!</b>' +
+                    '<b class="cau"><span>Cau!</span></b>' +
                   '</div>');
             }
         ));
@@ -493,12 +493,12 @@ describe('$compile', function() {
             function($compile, $templateCache, $rootScope, $browser) {
               $templateCache.put('hello.html', '<span>Hello, {{name}}!</span>');
               $rootScope.name = 'Elvis';
-              element = $compile('<div><hello></hello></div>')($rootScope);
+              element = $compile('<div><b class="hello"></b></div>')($rootScope);
 
               $rootScope.$digest();
 
               expect(sortedHtml(element)).
-                  toEqual('<div><hello><span>Hello, Elvis!</span></hello></div>');
+                  toEqual('<div><b class="hello"><span>Hello, Elvis!</span></b></div>');
             }
         ));
 
@@ -521,13 +521,13 @@ describe('$compile', function() {
             function($compile, $templateCache, $rootScope, $browser) {
               $templateCache.put('hello.html', '<span>Hello, {{name}}!</span>');
               $rootScope.name = 'Elvis';
-              var template = $compile('<div><hello></hello></div>');
+              var template = $compile('<div><b class="hello"></b></div>');
 
               element = template($rootScope);
               $rootScope.$digest();
 
               expect(sortedHtml(element)).
-                  toEqual('<div><hello><span>Hello, Elvis!</span></hello></div>');
+                  toEqual('<div><b class="hello"><span>Hello, Elvis!</span></b></div>');
             }
         ));
 
@@ -560,8 +560,8 @@ describe('$compile', function() {
             $rootScope.name = 'Elvis';
             var template = $compile(
               '<div>' +
-                '<hello></hello>' +
-                '<cau></cau>' +
+                '<b class="hello"></b>' +
+                '<b class="cau"></b>' +
                 '<c-error></c-error>' +
                 '<l-error></l-error>' +
               '</div>');
@@ -634,7 +634,7 @@ describe('$compile', function() {
               // we can't compile the contents because that would result in a memory leak
 
               $templateCache.put('hello.html', 'Hello!');
-              element = $compile('<div><hello><div log></div></hello></div>')($rootScope);
+              element = $compile('<div><b class="hello"><div log></div></b></div>')($rootScope);
 
               expect(log).toEqual('');
             }
@@ -656,12 +656,12 @@ describe('$compile', function() {
         it('should throw an error and clear element content if the template fails to load', inject(
             function($compile, $httpBackend, $rootScope) {
               $httpBackend.expect('GET', 'hello.html').respond(404, 'Not Found!');
-              element = $compile('<div><hello>content</hello></div>')($rootScope);
+              element = $compile('<div><b class="hello">content</b></div>')($rootScope);
 
               expect(function() {
                 $httpBackend.flush();
               }).toThrow('Failed to load template: hello.html');
-              expect(sortedHtml(element)).toBe('<div><hello></hello></div>');
+              expect(sortedHtml(element)).toBe('<div><b class="hello"></b></div>');
             }
         ));
 
@@ -678,7 +678,8 @@ describe('$compile', function() {
           inject(function($compile){
             expect(function() {
               $compile('<div><div class="sync async"></div></div>');
-            }).toThrow('Multiple directives [sync, async] asking for template on: <div class="sync async">');
+            }).toThrow('Multiple directives [sync, async] asking for template on: <'+
+                (msie ? 'DIV' : 'div') + ' class="sync async">');
           });
         });
 
@@ -829,7 +830,7 @@ describe('$compile', function() {
         it('should work when widget is in root element', inject(
           function($compile, $httpBackend, $rootScope) {
             $httpBackend.expect('GET', 'hello.html').respond('<span>3==<<content>></span>');
-            element = jqLite('<hello>{{1+2}}</hello>');
+            element = jqLite('<b class="hello">{{1+2}}</b>');
             $compile(element)($rootScope);
 
             $httpBackend.flush();
@@ -841,7 +842,7 @@ describe('$compile', function() {
         it('should work when widget is a repeater', inject(
           function($compile, $httpBackend, $rootScope) {
             $httpBackend.expect('GET', 'hello.html').respond('<span>i=<<content>>;</span>');
-            element = jqLite('<div><hello ng-repeat="i in [1,2]">{{i}}</hello></div>');
+            element = jqLite('<div><hello ng-repeat="i in [1,2]">{{i}}</b></div>');
             $compile(element)($rootScope);
 
             $httpBackend.flush();
