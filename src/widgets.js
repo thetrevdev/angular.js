@@ -790,12 +790,11 @@ var ngPluralizeDirective = ['$locale', '$interpolate', function($locale, $interp
 
 var scriptTemplateLoader = ['$templateCache', function($templateCache) {
   return {
-
     compile: function(element, attr) {
-      if (attr.type !== 'text/ng-template') return;
-
-      var templateUrl = attr.id;
-      $templateCache.put(templateUrl, element[0].innerText);
+      if (attr.type == 'text/ng-template') {
+        var templateUrl = attr.id;
+        $templateCache.put(templateUrl, element.text());
+      }
     }
   };
 }];
