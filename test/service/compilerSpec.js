@@ -1,6 +1,6 @@
 'use strict';
 
-d6escribe('$compile', function() {
+describe('$compile', function() {
   var element;
 
   beforeEach(module(provideLog, function($provide, $compileProvider){
