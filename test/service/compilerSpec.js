@@ -855,7 +855,7 @@ describe('$compile', function() {
       describe('scope', function() {
 
         beforeEach(module(function($compileProvider) {
-          forEach(['a', 'b'], function(name) {
+          forEach(['', 'a', 'b'], function(name) {
             $compileProvider.directive('scope' + uppercase(name), function(log) {
               return {
                 scope: true,
@@ -870,15 +870,32 @@ describe('$compile', function() {
           });
           $compileProvider.directive('log', function(log) {
             return function(scope) {
-              log('log-' + scope.$id);
+              log('log-' + scope.$id + '-' + scope.$parent.$id);
             };
           });
         }));
 
 
         it('should allow creation of new scopes', inject(function($rootScope, $compile, log) {
-          element = $compile('<div><span scope-a><a log></a></span></div>')($rootScope);
-          expect(log).toEqual('LOG; log-002; 002');
+          element = $compile('<div><span scope><a log></a></span></div>')($rootScope);
+          expect(log).toEqual('LOG; log-002-001; 002');
+        }));
+
+
+        it('should correctly create the scope hierachy properly', inject(
+            function($rootScope, $compile, log) {
+          element = $compile(
+              '<div>' + //1
+                '<scope>' + //2
+                  '<scope><log></log></scope>' + //3
+                  '<log></log>' +
+                '</scope>' +
+                '<scope>' + //4
+                  '<log></log>' +
+                '</scope>' +
+              '</div>'
+            )($rootScope);
+          expect(log).toEqual('LOG; log-003-002; 003; LOG; log-002-001; 002; LOG; log-004-001; 004');
         }));
 
 

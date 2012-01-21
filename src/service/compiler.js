@@ -242,17 +242,22 @@ function $CompileProvider($provide) {
        if (linkingFns.length != nodeList.length * 2) {
          throw Error('Template changed structure!');
        }
-       for(var childLinkingFn, directiveLinkingFn, node,
-               i=0, n=0, ii=linkingFns.length; i<ii; n++) {
+
+       var childLinkingFn, directiveLinkingFn, node, childScope;
+
+       for(var i=0, n=0, ii=linkingFns.length; i<ii; n++) {
          node = nodeList[n];
          directiveLinkingFn = linkingFns[i++];
          childLinkingFn = linkingFns[i++];
 
          if (directiveLinkingFn) {
            if (directiveLinkingFn.scope && !rootElement) {
-             jqLite(node).data('$scope', scope = scope.$new());
+             childScope = scope.$new();
+             jqLite(node).data('$scope', childScope);
+           } else {
+             childScope = scope;
            }
-           directiveLinkingFn(childLinkingFn, scope, node, rootElement);
+           directiveLinkingFn(childLinkingFn, childScope, node, rootElement);
          } else if (childLinkingFn) {
            childLinkingFn(scope, node.childNodes);
          }
