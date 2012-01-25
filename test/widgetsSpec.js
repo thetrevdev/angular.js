@@ -931,4 +931,19 @@ describe('widget', function() {
       }));
     });
   });
+
+  
+  describe('scriptTemplateLoader', function() {
+    it('should populate $templateCache with contents of a ng-template script element', inject(
+        function($compile, $templateCache) {
+          if (msie <=8) return;
+          $compile('<div>foo' +
+                     '<script id="/ignore">ignore me</script>' +
+                     '<script type="text/ng-template" id="/myTemplate.html"><x>{{y}}</x></script>' +
+                   '</div>' );
+          expect($templateCache.get('/myTemplate.html')).toBe('<x>{{y}}</x>');
+          expect($templateCache.get('/ignore')).toBeUndefined();
+        }
+    ));
+  });
 });
