@@ -288,10 +288,10 @@ function $RouteProvider(){
           && equals(next.pathParams, last.pathParams) && !next.reloadOnSearch && !forceReload) {
         last.params = next.params;
         copy(last.params, $routeParams);
-        $rootScope.$broadcast('$routeUpdate', last);
+        $rootScope.$broadcast('$routeUpdate', [last]);
       } else if (next || last) {
         forceReload = false;
-        $rootScope.$broadcast('$beforeRouteChange', next, last);
+        $rootScope.$broadcast('$beforeRouteChange', [next, last]);
         $route.current = next;
         if (next) {
           if (next.redirectTo) {
@@ -306,7 +306,7 @@ function $RouteProvider(){
             copy(next.params, $routeParams);
           }
         }
-        $rootScope.$broadcast('$afterRouteChange', next, last);
+        $rootScope.$broadcast('$afterRouteChange', [next, last]);
       }
     }
 

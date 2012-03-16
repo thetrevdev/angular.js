@@ -681,7 +681,7 @@ describe('Scope', function() {
           expect(arg1).toBe('arg1');
           expect(arg2).toBe('arg2');
         });
-        child.$emit('abc', 'arg1', 'arg2');
+        child.$emit('abc', ['arg1', 'arg2']);
       });
 
 
@@ -819,7 +819,7 @@ describe('Scope', function() {
         }));
 
 
-        it('should support passing messages as varargs', inject(function($rootScope) {
+        it('should support passing messages as arrays', inject(function($rootScope) {
           var scope = $rootScope,
               child = scope.$new(),
               args;
@@ -827,7 +827,7 @@ describe('Scope', function() {
           child.$on('fooEvent', function() {
             args = arguments;
           });
-          scope.$broadcast('fooEvent', 'do', 're', 'me', 'fa');
+          scope.$broadcast('fooEvent', ['do', 're', 'me', 'fa']);
 
           expect(args.length).toBe(5);
           expect(sliceArgs(args, 1)).toEqual(['do', 're', 'me', 'fa']);

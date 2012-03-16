@@ -652,7 +652,7 @@ function $RootScopeProvider(){
        * onto the {@link angular.module.ng.$exceptionHandler $exceptionHandler} service.
        *
        * @param {string} name Event name to emit.
-       * @param {...*} args Optional set of arguments which will be passed onto the event listeners.
+       * @param {Array.<*>} args Optional set of arguments which will be passed onto the event listeners.
        * @return {Object} Event object, see {@link angular.module.ng.$rootScope.Scope#$on}
        */
       $emit: function(name, args) {
@@ -665,7 +665,6 @@ function $RootScopeProvider(){
               cancel: function() {event.cancelled = true;},
               cancelled: false
             },
-            listenerArgs = concat([event], arguments, 1),
             i, length;
 
         do {
@@ -673,7 +672,7 @@ function $RootScopeProvider(){
           event.currentScope = scope;
           for (i=0, length=namedListeners.length; i<length; i++) {
             try {
-              namedListeners[i].apply(null, listenerArgs);
+              namedListeners[i].apply(null, [event].concat(args));
               if (event.cancelled) return event;
             } catch (e) {
               $exceptionHandler(e);
@@ -706,7 +705,7 @@ function $RootScopeProvider(){
        * onto the {@link angular.module.ng.$exceptionHandler $exceptionHandler} service.
        *
        * @param {string} name Event name to emit.
-       * @param {...*} args Optional set of arguments which will be passed onto the event listeners.
+       * @param {Array.<*>} args Optional set of arguments which will be passed onto the event listeners.
        * @return {Object} Event object, see {@link angular.module.ng.$rootScope.Scope#$on}
        */
       $broadcast: function(name, args) {
@@ -714,8 +713,7 @@ function $RootScopeProvider(){
             current = target,
             next = target,
             event = { name: name,
-                      targetScope: target },
-            listenerArgs = concat([event], arguments, 1);
+                      targetScope: target };
 
         //down while you can, then up and next sibling or up and next sibling until back at root
         do {
@@ -723,7 +721,7 @@ function $RootScopeProvider(){
           event.currentScope = current;
           forEach(current.$$listeners[name], function(listener) {
             try {
-              listener.apply(null, listenerArgs);
+              listener.apply(null, [event].concat(args));
             } catch(e) {
               $exceptionHandler(e);
             }
