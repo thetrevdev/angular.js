@@ -1,12 +1,13 @@
-describe('example.personalLog.LogCtrl', function() {
+ddescribe('example.personalLog.LogCtrl', function() {
   var logScope;
 
-  beforeEach(function() {
-    var injector = angular.injector(['ng', 'ngMock', 'ngCookies']);
-    logScope = injector.get('$rootScope');
-    logScope.$cookies = injector.get('$cookies');
-    injector.instantiate(example.personalLog.LogCtrl, {$scope: logScope});
-  });
+
+  beforeEach(module('personalLog'));
+
+  beforeEach(inject(function($rootScope, $controller) {
+    logScope = $rootScope.$new();
+    $controller(example.personalLog.LogCtrl, {$scope: logScope});
+  }));
 
 
   it('should initialize notes with an empty array', function() {
