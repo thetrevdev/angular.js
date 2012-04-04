@@ -249,35 +249,17 @@ describe('$route', function() {
     });
 
 
-    it('should interpolate route vars in the redirected path from original path', function() {
+    it('should interpolate route vars in the redirected url from original params', function() {
       module(function($routeProvider) {
-        $routeProvider.when('/foo/:id/foo/:subid/:extraId', {redirectTo: '/bar/:id/:subid/23'});
-        $routeProvider.when('/bar/:id/:subid/:subsubid', {template: 'bar.html'});
+        $routeProvider.when('/foo/:id/foo/:subid/:extraId', {redirectTo: '/bar/:id?:subid=23'});
+        $routeProvider.when('/bar/:id', {template: 'bar.html'});
       });
 
       inject(function($route, $location, $rootScope) {
         $location.path('/foo/id1/foo/subid3/gah');
         $rootScope.$digest();
 
-        expect($location.path()).toEqual('/bar/id1/subid3/23');
-        expect($location.search()).toEqual({extraId: 'gah'});
-        expect($route.current.template).toEqual('bar.html');
-      });
-    });
-
-
-    it('should interpolate route vars in the redirected path from original search', function() {
-      module(function($routeProvider) {
-        $routeProvider.when('/bar/:id/:subid/:subsubid', {template: 'bar.html'});
-        $routeProvider.when('/foo/:id/:extra', {redirectTo: '/bar/:id/:subid/99'});
-      });
-
-      inject(function($route, $location, $rootScope) {
-        $location.path('/foo/id3/eId').search('subid=sid1&appended=true');
-        $rootScope.$digest();
-
-        expect($location.path()).toEqual('/bar/id3/sid1/99');
-        expect($location.search()).toEqual({appended: 'true', extra: 'eId'});
+        expect($location.url()).toEqual('/bar/id1?subid3=23');
         expect($route.current.template).toEqual('bar.html');
       });
     });
