@@ -89,8 +89,8 @@ function $RouteProvider(){
   };
 
 
-  this.$get = ['$rootScope', '$location', '$routeParams',
-      function( $rootScope,  $location,  $routeParams) {
+  this.$get = ['$rootScope', '$location', '$routeParams', '$q', '$injector', '$exceptionHandler',
+      function( $rootScope,  $location,  $routeParams, $q, $injector, $exceptionHandler) {
 
     /**
      * @ngdoc object
@@ -282,7 +282,8 @@ function $RouteProvider(){
 
     function updateRoute() {
       var next = parseRoute(),
-          last = $route.current;
+          last = $route.current,
+          initObj;
 
       if (next && last && next.$route === last.$route
           && equals(next.pathParams, last.pathParams) && !next.reloadOnSearch && !forceReload) {
@@ -292,21 +293,40 @@ function $RouteProvider(){
       } else if (next || last) {
         forceReload = false;
         $rootScope.$broadcast('$beforeRouteChange', next, last);
-        $route.current = next;
-        if (next) {
-          if (next.redirectTo) {
-            if (isString(next.redirectTo)) {
-              $location.path(interpolate(next.redirectTo, next.params)).search(next.params)
-                       .replace();
+
+        initObj = (next && next.init)
+            ? $injector.invoke(next.init, null, {$nextRouteParams: next.params})
+            : {};
+
+        qShallow(initObj).then(function(locals) {
+          $route.current = next;
+          if (next) {
+            next.locals = locals;
+            if (next.redirectTo) {
+              redirectTo(next.redirectTo);
             } else {
-              $location.url(next.redirectTo(next.pathParams, $location.path(), $location.search()))
-                       .replace();
+              copy(next.params, $routeParams);
             }
-          } else {
-            copy(next.params, $routeParams);
           }
+          $rootScope.$broadcast('$afterRouteChange', next, last);
+        }, function(error) {
+          if (error.redirectTo) {
+            redirectTo(error.redirectTo);
+            $rootScope.$broadcast('$afterRouteChange', next, last);
+          } else {
+            $exceptionHandler(error);
+          }
+        });
+      }
+
+      function redirectTo(destination) {
+        if (isString(destination)) {
+          $location.url(interpolate(destination, next.params)).
+                    replace();
+        } else {
+          $location.url(destination(next.pathParams, $location.path(), $location.search())).
+                    replace();
         }
-        $rootScope.$broadcast('$afterRouteChange', next, last);
       }
     }
 
@@ -346,6 +366,28 @@ function $RouteProvider(){
         }
       });
       return result.join('');
+    }
+
+
+    function qShallow(obj) {
+      var deferred = $q.defer(),
+          result = {},
+          counter = 0;
+
+      forEach(obj, function(promise, key) {
+        counter++;
+        $q.when(promise).then(function(value) {
+          result[key] = value;
+          counter--;
+          if (!counter) deferred.resolve(result);
+        }, function(error) {
+          deferred.reject(error);
+        });
+      });
+
+      if (!counter) deferred.resolve(result);
+
+      return deferred.promise;
     }
   }];
 }

@@ -294,7 +294,7 @@ describe('$route', function() {
       });
       inject(function($route, $location, $rootScope) {
         var replace;
-        $rootScope.$watch(function() {
+        $rootScope.$on('$afterRouteChange', function() {
           if (isUndefined(replace)) replace = $location.$$replace;
         });
 
@@ -465,6 +465,75 @@ describe('$route', function() {
           expect($routeParams).toEqual({barId:'123', a:'b'});
           expect(routeChangeSpy).toHaveBeenCalledOnce();
         });
+      });
+    });
+  });
+
+  describe('async dependencies', function() {
+
+    it('should allow a route to define async dependencies that should be resolved and passed' +
+        'into a controller as local', function() {
+      module(function($routeProvider) {
+        $routeProvider.when('/product/:productId', {
+          init: function($http, $nextRouteParams) {
+            return {
+              user: $http.get('/user/me').then(function(response) { return response.data}),
+              product: $http.get('/product/' + $nextRouteParams.productId).then(function(response) {
+                return response.data;
+              })
+            }
+          }
+        });
+      });
+
+      inject(function($route, $location, $rootScope, $httpBackend) {
+        var user = {name: 'Buba'},
+            product = {id: 123, name: "milk", price: 23};
+
+        $httpBackend.expectGET('/user/me').respond(user);
+        $httpBackend.expectGET('/product/123').respond(product);
+
+        $location.url('/product/123');
+        $rootScope.$digest();
+        expect($route.current).toBeUndefined();
+
+        $httpBackend.flush();
+        expect($route.current.locals).toEqual({user: user, product: product});
+      });
+    });
+
+
+    it('should allow for async dependency to cause a redirection to happen', function() {
+      module(function($routeProvider) {
+        $routeProvider.when('/admin-only/', {
+          init: function($http, $q) {
+            var userPromise = $http.get('/user/me').then(function(response) { return response.data});
+            return {
+              user: userPromise,
+              isAdmin: userPromise.then(function(user) {
+                return user.isAdmin
+                    ? true
+                    : $q.reject({redirectTo: '/permission-denied'});
+              })
+            }
+          }
+        });
+        $routeProvider.when('/permission-denied', {template: '403.html'});
+      });
+
+      inject(function($route, $location, $rootScope, $httpBackend) {
+        var user = {name: 'Buba', isAdmin: false};
+
+        $httpBackend.expectGET('/user/me').respond(user);
+
+        $location.url('/admin-only/');
+        $rootScope.$digest();
+        expect($route.current).toBeUndefined();
+
+        $httpBackend.flush();
+
+        expect($location.url()).toBe('/permission-denied');
+        expect($route.current.template).toBe('403.html');
       });
     });
   });

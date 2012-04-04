@@ -151,7 +151,10 @@ var ngViewDirective = ['$http', '$templateCache', '$route', '$anchorScroll', '$c
 
               lastScope = current.scope = scope.$new();
               if (current.controller) {
-                controller = $controller(current.controller, {$scope: lastScope});
+                controller = $controller(
+                    current.controller,
+                    extend({$scope: lastScope}, $route.current.locals)
+                );
                 element.contents().data('$ngControllerController', controller);
               }
 

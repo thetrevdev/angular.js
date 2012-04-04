@@ -452,4 +452,36 @@ describe('ng-view', function() {
       expect(div.controller()).toBe($route.current.scope.ctrl);
     });
   });
+
+
+  it('should work with locals coming from $route init', function() {
+    function UserCtrl($scope, user) {
+      $scope.user = user;
+    }
+
+    module(function($routeProvider) {
+      $routeProvider.when('/foo', {
+        template: 'tpl.html',
+        controller: UserCtrl,
+        init: function($http) {
+          return {
+            user: $http.get('/users/me').then(function(response) { return response.data })
+          }
+        }});
+    });
+
+    inject(function($templateCache, $location, $rootScope, $httpBackend, $route) {
+      $templateCache.put('tpl.html', '<div>{{user.name}}</div>');
+      $httpBackend.expectGET('/users/me').respond({name: 'Jozo'});
+      $location.url('/foo');
+      $rootScope.$digest();
+
+      expect($route.current).toBeUndefined();
+      expect(element.text()).toBe('');
+      $httpBackend.flush();
+
+      expect($route.current.template).toBe('tpl.html');
+      expect(element.text()).toBe('Jozo');
+    });
+  });
 });
