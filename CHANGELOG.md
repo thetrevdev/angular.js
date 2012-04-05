@@ -1,3 +1,60 @@
+<a name="v1.0.0rc4"></a>
+# v1.0.0rc4 insomnia-induction (2012-04-05)
+
+
+## Bug Fixes
+
+- **$compile:** relax the restriction that directives can not add siblings
+  ([7e86eacf](https://github.com/angular/angular.js/commit/7e86eacf301934335c22908ec6dbd1a083d88fab))
+- **$location:** search setter should not double-encode the value
+  ([59fa40ec](https://github.com/angular/angular.js/commit/59fa40ec0e851759d35fb0ea5fd01019d1403049),
+   closes [#751](https://github.com/angular/angular.js/issues/751))
+- **$q:** $q.reject should forward callbacks if missing
+  ([c0b78478](https://github.com/angular/angular.js/commit/c0b78478a0e64942a69aba7c1bfa4eb01c0e9a5e),
+   closes [#845](https://github.com/angular/angular.js/issues/845))
+- **build:** move `'use strict';` flag into the angular closure
+  ([637817e3](https://github.com/angular/angular.js/commit/637817e3ba48d149e7a9628533d21e81c650d988))
+- **Directives**:
+  - **ngModel:** update model on each key stroke (revert ngModelInstant)
+    ([06d09550](https://github.com/angular/angular.js/commit/06d0955074f79de553cc34fbf945045dc458e064))
+  - **booleanAttrs:** always convert the model to boolean before setting the element property
+    ([dcb8e076](https://github.com/angular/angular.js/commit/dcb8e0767fbf0a7a55f3b0045fd01b2532ea5441))
+  - **form:** preperly clean up when invalid widget is removed
+    ([21b77ad5](https://github.com/angular/angular.js/commit/21b77ad5c231ab0e05eb89f22005f7ed8d40a6c1))
+  - **ngHref:** copy even if no binding
+    ([2f5dba48](https://github.com/angular/angular.js/commit/2f5dba488e855bcdbb9304aa809efcb9de7b43e9))
+  - **ngInclude:** fire $includeContentLoaded on proper (child) scope
+    ([199ac269](https://github.com/angular/angular.js/commit/199ac269869a57bb63d60c9b3f510d546bf0c9b2))
+
+
+## Features
+
+- **$http:** add `withCredentials` config option
+  ([86182a94](https://github.com/angular/angular.js/commit/86182a9415b9209662b16c25c180b958ba7e6cf9))
+- **$route:** allow chaining of whens and otherwise
+  ([15ecc6f3](https://github.com/angular/angular.js/commit/15ecc6f3668885ebc5c7130dd34e00059ddf79ae))
+- **ngInclude:** allow ngInclude as css class
+  ([428f2b56](https://github.com/angular/angular.js/commit/428f2b563663315df4f235ca19cef4bdcf82e2ab))
+
+
+## Docs
+- reintroduced the tutorial docs - currently only steps 0-3 are up to date and the code is not split
+  up into step specific commits yet. See
+  [this branch](https://github.com/angular/angular-phonecat/tree/v1.0-update) instead.
+- various other doc fixes
+
+
+## Breaking Changes
+
+We removed two useless features:
+
+- $routeProvider.when used to return the route definition object but now it returns self
+  ([15ecc6f3](https://github.com/angular/angular.js/commit/15ecc6f3668885ebc5c7130dd34e00059ddf79ae))
+- ngInclude does not have scope attribute anymore
+  ([5f70d615](https://github.com/angular/angular.js/commit/5f70d615a5f7e102424c6adc15d7a6f697870b6e))
+
+
+
 <a name="v1.0.0rc3"></a>
 # v1.0.0rc3 barefoot-telepathy (2012-03-29)
 
