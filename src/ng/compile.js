@@ -810,7 +810,7 @@ function $CompileProvider($provide) {
       var linkQueue = [],
           afterTemplateNodeLinkFn,
           afterTemplateChildLinkFn,
-          originalTemplateNode = tElement[0],
+          origTemplateNode = tElement[0],
           origAsyncDirective = directives.shift(),
           // The fact that we have to copy and patch the directive seems wrong!
           derivedSyncDirective = extend({}, origAsyncDirective, {
@@ -834,7 +834,7 @@ function $CompileProvider($provide) {
             collectDirectives(templateNode, directives, tempTemplateAttrs);
             mergeTemplateAttributes(tAttrs, tempTemplateAttrs);
           } else {
-            templateNode = originalTemplateNode;
+            templateNode = origTemplateNode;
             tElement.html(content);
           }
 
@@ -846,29 +846,29 @@ function $CompileProvider($provide) {
           while(linkQueue.length) {
             var controller = linkQueue.pop(),
                 linkRootElement = linkQueue.pop(),
-                linkNode = linkQueue.pop(),
+                origLinkNode = linkQueue.pop(),
                 scope = linkQueue.pop(),
-                node = templateNode,
-                cLinkNodeJq = jqLite(linkNode);
+                linkNode = templateNode,
+                $origLinkNode = jqLite(origLinkNode);
 
-            if (linkNode !== originalTemplateNode) {
+            if (origLinkNode !== origTemplateNode) {
               // it was cloned therefore we have to clone as well.
-              node = JQLiteClone(templateNode);
-              replaceWith(linkRootElement, jqLite(linkNode), node);
+              linkNode = JQLiteClone(templateNode);
+              replaceWith(linkRootElement, $origLinkNode, linkNode);
             }
 
             if (replace) {
-              if (cLinkNodeJq.data('$scope')) {
+              if ($origLinkNode.data('$scope')) {
                 // if the original element before replacement had a new scope, the replacement should
                 // get it as well
-                jqLite(node).data('$scope', scope);
+                jqLite(linkNode).data('$scope', scope);
               }
-              dealoc(cLinkNodeJq);
+              dealoc($origLinkNode);
             }
 
             afterTemplateNodeLinkFn(function() {
-              beforeTemplateNodeLinkFn(afterTemplateChildLinkFn, scope, node, rootElement, controller);
-            }, scope, node, rootElement, controller);
+              beforeTemplateNodeLinkFn(afterTemplateChildLinkFn, scope, linkNode, rootElement, controller);
+            }, scope, linkNode, rootElement, controller);
           }
           linkQueue = null;
         }).
