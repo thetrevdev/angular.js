@@ -290,31 +290,31 @@ function $CompileProvider($provide) {
 
     //================================
 
-    function compile(templateElement, transcludeFn, maxPriority) {
-      if (!(templateElement instanceof jqLite)) {
+    function compile($compileNode, transcludeFn, maxPriority) {
+      if (!($compileNode instanceof jqLite)) {
         // jquery always rewraps, where as we need to preserve the original selector so that we can modify it.
-        templateElement = jqLite(templateElement);
+        $compileNode = jqLite($compileNode);
       }
       // We can not compile top level text elements since text nodes can be merged and we will
       // not be able to attach scope data to them, so we will wrap them in <span>
-      forEach(templateElement, function(node, index){
+      forEach($compileNode, function(node, index){
         if (node.nodeType == 3 /* text node */) {
-          templateElement[index] = jqLite(node).wrap('<span>').parent()[0];
+          $compileNode[index] = jqLite(node).wrap('<span>').parent()[0];
         }
       });
-      var compositeLinkFn = compileNodes(templateElement, transcludeFn, templateElement, maxPriority);
+      var compositeLinkFn = compileNodes($compileNode, transcludeFn, $compileNode, maxPriority);
       return function(scope, cloneConnectFn){
         assertArg(scope, 'scope');
         // important!!: we must call our jqLite.clone() since the jQuery one is trying to be smart
         // and sometimes changes the structure of the DOM.
-        var element = cloneConnectFn
-          ? JQLitePrototype.clone.call(templateElement) // IMPORTANT!!!
-          : templateElement;
-        element.data('$scope', scope);
-        safeAddClass(element, 'ng-scope');
-        if (cloneConnectFn) cloneConnectFn(element, scope);
-        if (compositeLinkFn) compositeLinkFn(scope, element, element);
-        return element;
+        var $instanceNode = cloneConnectFn
+          ? JQLitePrototype.clone.call($compileNode) // IMPORTANT!!!
+          : $compileNode;
+        $instanceNode.data('$scope', scope);
+        safeAddClass($instanceNode, 'ng-scope');
+        if (cloneConnectFn) cloneConnectFn($instanceNode, scope);
+        if (compositeLinkFn) compositeLinkFn(scope, $instanceNode, $instanceNode);
+        return $instanceNode;
       };
     }
 
@@ -322,9 +322,9 @@ function $CompileProvider($provide) {
       throw Error("Unsupported '" + mode + "' for '" + localName + "'.");
     }
 
-    function safeAddClass(element, className) {
+    function safeAddClass($element, className) {
       try {
-        element.addClass(className);
+        $element.addClass(className);
       } catch(e) {
         // ignore, since it means that we are trying to set class on
         // SVG element, where class name is read-only.
@@ -340,13 +340,13 @@ function $CompileProvider($provide) {
      * @param {NodeList} nodeList an array of nodes to compile
      * @param {function(angular.Scope[, cloneAttachFn]} transcludeFn A linking function, where the
      *        scope argument is auto-generated to the new child of the transcluded parent scope.
-     * @param {DOMElement=} rootElement If the nodeList is the root of the compilation tree then the
+     * @param {DOMElement=} $rootElement If the nodeList is the root of the compilation tree then the
      *        rootElement must be set the jqLite collection of the compile root. This is
      *        needed so that the jqLite collection items can be replaced with widgets.
      * @param {number=} max directive priority
      * @returns {?function} A composite linking function of all of the matched directives or null.
      */
-    function compileNodes(nodeList, transcludeFn, rootElement, maxPriority) {
+    function compileNodes(nodeList, transcludeFn, $rootElement, maxPriority) {
      var linkFns = [],
          nodeLinkFn, childLinkFn, directives, attrs, linkFnFound;
 
@@ -357,7 +357,7 @@ function $CompileProvider($provide) {
        directives = collectDirectives(nodeList[i], [], attrs, maxPriority);
 
        nodeLinkFn = (directives.length)
-           ? applyDirectivesToNode(directives, nodeList[i], attrs, transcludeFn, rootElement)
+           ? applyDirectivesToNode(directives, nodeList[i], attrs, transcludeFn, $rootElement)
            : null;
 
        childLinkFn = (nodeLinkFn && nodeLinkFn.terminal)
@@ -373,10 +373,10 @@ function $CompileProvider($provide) {
      // return a linking function if we have found anything, null otherwise
      return linkFnFound ? compositeLinkFn : null;
 
-     function compositeLinkFn(scope, nodeList, rootElement, boundTranscludeFn) {
-       var nodeLinkFn, childLinkFn, node, childScope, childTransclusionFn;
+     function compositeLinkFn(scope, nodeList, $rootElement, boundTranscludeFn) {
+       var nodeLinkFn, childLinkFn, node, childScope, childTranscludeFn;
 
-       for(var i=0, n=0, ii=linkFns.length; i<ii; n++) {
+       for(var i = 0, n = 0, ii = linkFns.length; i < ii; n++) {
          node = nodeList[n];
          nodeLinkFn = linkFns[i++];
          childLinkFn = linkFns[i++];
@@ -388,9 +388,9 @@ function $CompileProvider($provide) {
            } else {
              childScope = scope;
            }
-           childTransclusionFn = nodeLinkFn.transclude;
-           if (childTransclusionFn || (!boundTranscludeFn && transcludeFn)) {
-             nodeLinkFn(childLinkFn, childScope, node, rootElement,
+           childTranscludeFn = nodeLinkFn.transclude;
+           if (childTranscludeFn || (!boundTranscludeFn && transcludeFn)) {
+             nodeLinkFn(childLinkFn, childScope, node, $rootElement,
                  (function(transcludeFn) {
                    return function(cloneFn) {
                      var transcludeScope = scope.$new();
@@ -398,7 +398,7 @@ function $CompileProvider($provide) {
                      return transcludeFn(transcludeScope, cloneFn).
                          bind('$destroy', bind(transcludeScope, transcludeScope.$destroy));
                     };
-                  })(childTransclusionFn || transcludeFn)
+                  })(childTranscludeFn || transcludeFn)
              );
            } else {
              nodeLinkFn(childLinkFn, childScope, node, undefined, boundTranscludeFn);
@@ -494,22 +494,22 @@ function $CompileProvider($provide) {
      *
      * @param {Array} directives Array of collected directives to execute their compile function.
      *        this needs to be pre-sorted by priority order.
-     * @param {Node} templateNode The raw DOM node to apply the compile functions to
+     * @param {Node} compileNode The raw DOM node to apply the compile functions to
      * @param {Object} templateAttrs The shared attribute function
      * @param {function(angular.Scope[, cloneAttachFn]} transcludeFn A linking function, where the
      *        scope argument is auto-generated to the new child of the transcluded parent scope.
-     * @param {DOMElement} rootElement If we are working on the root of the compile tree then this
+     * @param {DOMElement} $rootElement If we are working on the root of the compile tree then this
      *        argument has the root jqLite array so that we can replace widgets on it.
      * @returns linkFn
      */
-    function applyDirectivesToNode(directives, templateNode, templateAttrs, transcludeFn, rootElement) {
+    function applyDirectivesToNode(directives, compileNode, templateAttrs, transcludeFn, $rootElement) {
       var terminalPriority = -Number.MAX_VALUE,
           preLinkFns = [],
           postLinkFns = [],
           newScopeDirective = null,
           newIsolatedScopeDirective = null,
           templateDirective = null,
-          element = templateAttrs.$$element = jqLite(templateNode),
+          element = templateAttrs.$$element = jqLite(compileNode),
           directive,
           directiveName,
           template,
@@ -552,13 +552,13 @@ function $CompileProvider($provide) {
           transcludeDirective = directive;
           terminalPriority = directive.priority;
           if (directiveValue == 'element') {
-            template = jqLite(templateNode);
-            templateNode = (element = templateAttrs.$$element = jqLite(
+            template = jqLite(compileNode);
+            compileNode = (element = templateAttrs.$$element = jqLite(
                 '<!-- ' + directiveName + ': ' + templateAttrs[directiveName]  + ' -->'))[0];
-            replaceWith(rootElement, jqLite(template[0]), templateNode);
+            replaceWith($rootElement, jqLite(template[0]), compileNode);
             childTranscludeFn = compile(template, transcludeFn, terminalPriority);
           } else {
-            template = jqLite(JQLiteClone(templateNode));
+            template = jqLite(JQLiteClone(compileNode));
             element.html(''); // clear contents
             childTranscludeFn = compile(template.contents(), transcludeFn);
           }
@@ -568,9 +568,9 @@ function $CompileProvider($provide) {
           assertNoDuplicate('template', templateDirective, directive, element);
           templateDirective = directive;
 
-          templateNode = jqLite(directiveValue)[0];
+          compileNode = jqLite(directiveValue)[0];
           if (directive.replace) {
-            replaceWith(rootElement, element, templateNode);
+            replaceWith($rootElement, element, compileNode);
 
             var newTemplateAttrs = {$attr: {}};
 
@@ -581,7 +581,7 @@ function $CompileProvider($provide) {
             // - append the second group with new directives to the first group
             directives = directives.concat(
                 collectDirectives(
-                    templateNode,
+                    compileNode,
                     directives.splice(i + 1, directives.length - (i + 1)),
                     newTemplateAttrs
                 )
@@ -598,7 +598,7 @@ function $CompileProvider($provide) {
           assertNoDuplicate('template', templateDirective, directive, element);
           templateDirective = directive;
           nodeLinkFn = compileTemplateUrl(directives.splice(i, directives.length - i),
-              nodeLinkFn, element, templateAttrs, rootElement, directive.replace,
+              nodeLinkFn, element, templateAttrs, $rootElement, directive.replace,
               childTranscludeFn);
           ii = directives.length;
         } else if (directive.compile) {
@@ -669,7 +669,7 @@ function $CompileProvider($provide) {
       function nodeLinkFn(childLinkFn, scope, linkNode, rootElement, boundTranscludeFn) {
         var attrs, element, i, ii, linkFn, controller;
 
-        if (templateNode === linkNode) {
+        if (compileNode === linkNode) {
           attrs = templateAttrs;
         } else {
           attrs = shallowCopy(templateAttrs, new Attributes(jqLite(linkNode), templateAttrs.$attr));
@@ -958,28 +958,28 @@ function $CompileProvider($provide) {
      * This is a special jqLite.replaceWith, which can replace items which
      * have no parents, provided that the containing jqLite collection is provided.
      *
-     * @param {JqLite=} rootElement The root of the compile tree. Used so that we can replace nodes
+     * @param {JqLite=} $rootElement The root of the compile tree. Used so that we can replace nodes
      *    in the root of the tree.
-     * @param {JqLite} element The jqLite element which we are going to replace. We keep the shell,
+     * @param {JqLite} $element The jqLite element which we are going to replace. We keep the shell,
      *    but replace its DOM node reference.
      * @param {Node} newNode The new DOM node.
      */
-    function replaceWith(rootElement, element, newNode) {
-      var oldNode = element[0],
+    function replaceWith($rootElement, $element, newNode) {
+      var oldNode = $element[0],
           parent = oldNode.parentNode,
           i, ii;
 
-      if (rootElement) {
-        for(i = 0, ii = rootElement.length; i<ii; i++) {
-          if (rootElement[i] == oldNode) {
-            rootElement[i] = newNode;
+      if ($rootElement) {
+        for(i = 0, ii = $rootElement.length; i < ii; i++) {
+          if ($rootElement[i] == oldNode) {
+            $rootElement[i] = newNode;
           }
         }
       }
       if (parent) {
         parent.replaceChild(newNode, oldNode);
       }
-      element[0] = newNode;
+      $element[0] = newNode;
     }
   }];
 }
