@@ -867,22 +867,12 @@ function $CompileProvider($provide) {
                 linkRootElement = linkQueue.pop(),
                 origLinkNode = linkQueue.pop(),
                 scope = linkQueue.pop(),
-                linkNode = compileNode,
-                $origLinkNode = jqLite(origLinkNode);
+                linkNode = compileNode;
 
             if (origLinkNode !== origCompileNode) {
               // it was cloned therefore we have to clone as well.
               linkNode = JQLiteClone(compileNode);
-              replaceWith(linkRootElement, $origLinkNode, linkNode);
-            }
-
-            if (replace) {
-              if ($origLinkNode.data('$scope')) {
-                // if the original element before replacement had a new scope, the replacement should
-                // get it as well
-                jqLite(linkNode).data('$scope', scope);
-              }
-              dealoc($origLinkNode);
+              replaceWith(linkRootElement, jqLite(origLinkNode), linkNode);
             }
 
             afterTemplateNodeLinkFn(function() {
@@ -985,6 +975,7 @@ function $CompileProvider($provide) {
      */
     function replaceWith($rootElement, $element, newNode) {
       var oldNode = $element[0],
+          expando,
           parent = oldNode.parentNode,
           i, ii;
 
@@ -992,12 +983,18 @@ function $CompileProvider($provide) {
         for(i = 0, ii = $rootElement.length; i < ii; i++) {
           if ($rootElement[i] == oldNode) {
             $rootElement[i] = newNode;
+            break;
           }
         }
       }
+
       if (parent) {
         parent.replaceChild(newNode, oldNode);
       }
+
+      expando = jqLite.expando ? jqLite.expando : jqName;
+      newNode[expando] = oldNode[expando];
+
       $element[0] = newNode;
     }
   }];
