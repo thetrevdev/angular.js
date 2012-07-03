@@ -15,6 +15,7 @@ angularFiles = {
     'src/ng/controller.js',
     'src/ng/document.js',
     'src/ng/exceptionHandler.js',
+    'src/ng/error.js',
     'src/ng/interpolate.js',
     'src/ng/location.js',
     'src/ng/log.js',
