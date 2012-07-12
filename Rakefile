@@ -98,9 +98,7 @@ task :compile => [:init, :compile_scenario, :compile_jstd_scenario_adapter] do
 
   FileUtils.cp 'src/ngMock/angular-mocks.js', path_to('angular-mocks.js')
 
-  error_compress('angular.js')  
-#  closure_compile('angular.js')
-
+  closure_compile(error_compress('angular.js'))
   closure_compile('angular-cookies.js')
   closure_compile('angular-loader.js')
   closure_compile('angular-resource.js')
@@ -271,32 +269,31 @@ def path_to(filename)
   return File.join(BUILD_DIR, *filename)
 end
 
+
 ##
-# Returns the path at which error_compressed file is stored
+# rewrites (compresses) error messages in a js file and returns the path at which the compressed
+# file is stored
 #
 def error_compress(filename)
-  puts "Compressing errors for #{filename} ..."
-  
-  # Do a mid step of running the Error compressor against file
-  # and outputting it to .mid.js. Then run closure compile against
-  # *.mid.js and output .min.js
-  mid_path = path_to(filename.gsub(/\.js$/, '.mid.js'))
-  err_comp_file = filename.gsub(/\.js$/, '.mid.js') 
+  puts "Compressing error messages in #{filename} ..."
 
-  %x(node lib/error-compressor/compressor.js #{path_to(filename)} #{mid_path} 'docs/content/misc/errors.ngdoc')
-  puts "Temporary file created in #{mid_path}"
-  
-  closure_compile(err_comp_file)
-#  closure_compile('angular.js')
-  puts "Removing temporary file"
-  FileUtils.rm(mid_path)
+  # Do a mid step of running the Error compressor against file
+  # and outputting it to .slim.js.
+  slim_path = path_to(filename.gsub(/\.js$/, '.slim.js'))
+
+  %x(node lib/error-compressor/compressor.js \
+          #{path_to(filename)} \
+          #{slim_path} \
+          'docs/content/misc/errors.ngdoc')
+  puts "Error-compressed file created as #{slim_path}"
+  return slim_path
 end
+
 
 def closure_compile(filename)
   puts "Compiling #{filename} ..."
 
-  filename = filename.gsub(/\mid\.js$/, 'js')
-  min_path = path_to(filename.gsub(/\.js$/, '.min.js'))
+  min_path = path_to(filename.gsub(/(\.slim)?\.js$/, '.min.js'))
 
   %x(java -jar lib/closure-compiler/compiler.jar \
         --compilation_level SIMPLE_OPTIMIZATIONS \
@@ -304,7 +301,7 @@ def closure_compile(filename)
         --js #{path_to(filename)} \
         --js_output_file #{min_path})
 
-  
+
   rewrite_file(min_path) do |content|
     content.sub!("'use strict';", "").
             sub!(/\(function\([^)]*\)\{/, "\\0'use strict';")
