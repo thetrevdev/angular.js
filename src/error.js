@@ -2,17 +2,17 @@
 
 /**
  * @description
- * 
+ *
  * This object extends the error class and provides interpolation capability
- * to make it easier to write and read Error Messages within Angular. It can
+ * to make it easier to write and read Error messages within Angular. It can
  * be called as follows:
- * 
+ *
  * throw new NgError(13, 'This {0} is {1}', foo, bar);
- * 
+ *
  * The above will replace {0} with the value of foo, and {1} with the value of
  * bar. The object is not restricted in the number of arguments it can take.
- * 
- * If less arguments are specified than necessary for interpolation, they are
+ *
+ * If fewer arguments are specified than necessary for interpolation, they are
  * left untouched.
  */
 /**
@@ -23,11 +23,16 @@
  *     message string in order.
  */
 function NgError() {
-  var s = arguments[1];
-  for (var i = 0; i < arguments.length - 2; i++) {       
-    var reg = new RegExp("\\{" + i + "\\}", "gm");             
-    s = s.replace(reg, arguments[i + 2]);
+  var message = arguments[1],
+      i = 0,
+      l = arguments.length - 2,
+      reg;
+
+  for (; i < l; i++) {
+    reg = new RegExp("\\{" + i + "\\}", "gm");
+    message = message.replace(reg, arguments[i + 2]);
   }
-  this.message = s;
+  this.message = message;
 }
+
 NgError.prototype = new Error();
