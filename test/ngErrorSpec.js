@@ -8,6 +8,24 @@ describe('NgError', function() {
   });
 
 
+  it('should generate stack trace at the frame where constructor NgError was called', function() {
+    var myError;
+
+    function someFn() {
+      function nestedFn() {
+        myError = new NgError();
+      }
+      nestedFn();
+    }
+
+    someFn();
+
+    if (myError.stack) {
+      expect(myError.stack).toMatch(/[.\s\S]+nestedFn[.\s\S]+someFn.+/);
+    }
+  });
+
+
   it('should interpolate string arguments without quotes', function() {
     var myError = new NgError(26, 'This {0} is "{1}"', 'foo', 'bar');
     expect(myError.message).toBe('This foo is "bar"');

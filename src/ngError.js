@@ -42,7 +42,12 @@ function NgError() {
 
     message = message.replace(curlyRegexp, arg);
   }
-  this.message = message;
-}
 
-NgError.prototype = new Error();
+  // even if we are called as constructor we can bypass the new NgError instance and return
+  // an instance of a real Error that contains correct stack info + extra frame for NgError call
+  //
+  // TODO(i): can we turn this into a factory function rather than constructor? we wouldn't need
+  //    "new" everywhere
+  // TODO(i): can we rewrite the stack string to remove NgError frame?
+  return new Error(message);
+}
