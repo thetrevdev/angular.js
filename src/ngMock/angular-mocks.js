@@ -846,11 +846,11 @@ function createHttpBackendMock($delegate, $browser) {
     if (expectation && expectation.match(method, url)) {
       if (!expectation.matchData(data))
         throw new NgError(33, 'Expected {0} with different data\nEXPECTED: {1}\nGOT:      {2}',
-            expectation, prettyPrint(expectation.data), data);
+            expectation + '', prettyPrint(expectation.data), data);
 
       if (!expectation.matchHeaders(headers))
         throw new NgError(34, 'Expected {0} with different headers\nEXPECTED: {1}\nGOT:      {2}',
-            expectation, prettyPrint(expectation.headers), prettyPrint(headers));
+            expectation + '', prettyPrint(expectation.headers), prettyPrint(headers));
 
       expectations.shift();
 

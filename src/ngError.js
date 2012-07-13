@@ -26,11 +26,21 @@ function NgError() {
   var message = arguments[1],
       i = 0,
       l = arguments.length - 2,
-      reg;
+      curlyRegexp, arg;
 
   for (; i < l; i++) {
-    reg = new RegExp("\\{" + i + "\\}", "gm");
-    message = message.replace(reg, arguments[i + 2]);
+    curlyRegexp = new RegExp("\\{" + i + "\\}", "gm");
+    arg = arguments[i + 2];
+
+    if (isFunction(arg)) {
+      arg = arg.name
+          ? arg.name + '()'
+          : arg.toString();
+    } else if (!isString(arg)) {
+      arg = toJson(arg);
+    }
+
+    message = message.replace(curlyRegexp, arg);
   }
   this.message = message;
 }
