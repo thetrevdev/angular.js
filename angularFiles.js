@@ -5,7 +5,7 @@ angularFiles = {
     'src/AngularPublic.js',
     'src/jqLite.js',
     'src/apis.js',
-    'src/error.js',
+    'src/ngError.js',
 
     'src/auto/injector.js',
 
