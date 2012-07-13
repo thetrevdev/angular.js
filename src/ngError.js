@@ -23,7 +23,7 @@
  *     message string in order.
  */
 function NgError() {
-  var message = arguments[1],
+  var message = '[NgErr' + arguments[0] + '] ' + arguments[1],
       i = 0,
       l = arguments.length - 2,
       curlyRegexp, arg;
