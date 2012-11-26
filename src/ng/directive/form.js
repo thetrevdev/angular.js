@@ -38,7 +38,8 @@ function FormController(element, attrs) {
   var form = this,
       parentForm = element.parent().controller('form') || nullFormCtrl,
       invalidCount = 0, // used to easily determine if we are valid
-      errors = form.$error = {};
+      errors = form.$error = {},
+      controls = [];
 
   // init state
   form.$name = attrs.name;
@@ -62,6 +63,8 @@ function FormController(element, attrs) {
   }
 
   form.$addControl = function(control) {
+    controls.push(control);
+
     if (control.$name && !form.hasOwnProperty(control.$name)) {
       form[control.$name] = control;
     }
@@ -74,6 +77,8 @@ function FormController(element, attrs) {
     forEach(errors, function(queue, validationToken) {
       form.$setValidity(validationToken, true, control);
     });
+
+    arrayRemove(controls, control);
   };
 
   form.$setValidity = function(validationToken, isValid, control) {
@@ -140,10 +145,8 @@ function FormController(element, attrs) {
     element.removeClass(DIRTY_CLASS).addClass(PRISTINE_CLASS);
     form.$dirty = false;
     form.$pristine = true;
-    angular.forEach(form, function(value, key) {
-      if (value.$name && value.$setPristine) {
-        value.$setPristine();
-      }
+    forEach(controls, function(control) {
+      control.$setPristine();
     });
   };
 }
