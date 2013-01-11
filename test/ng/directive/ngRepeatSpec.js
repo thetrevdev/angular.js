@@ -274,7 +274,7 @@ describe('ngRepeat', function() {
       '<ul>' +
         '<li ng-repeat="(key, val) in items">{{key}}:{{val}}:{{$first}}-{{$middle}}-{{$last}}|</li>' +
       '</ul>')(scope);
-    scope.items = {'misko':'m', 'shyam':'s', 'doug':'d', 'frodo':'f', '$internal': 'xxxx'};
+    scope.items = {'misko':'m', 'shyam':'s', 'doug':'d', 'frodo':'f'};
     scope.$digest();
     expect(element.text()).
         toEqual('doug:d:true-false-false|' +
@@ -290,6 +290,21 @@ describe('ngRepeat', function() {
     delete scope.items.shyam;
     scope.$digest();
     expect(element.text()).toEqual('misko:m:true-false-true|');
+  });
+
+
+  it('should calculate $first, $middle and $last when we filter out properties from an obj', function() {
+    element = $compile(
+        '<ul>' +
+            '<li ng-repeat="(key, val) in items">{{key}}:{{val}}:{{$first}}-{{$middle}}-{{$last}}|</li>' +
+            '</ul>')(scope);
+    scope.items = {'misko':'m', 'shyam':'s', 'doug':'d', 'frodo':'f', '$toBeFilteredOut': 'xxxx'};
+    scope.$digest();
+    expect(element.text()).
+        toEqual('doug:d:true-false-false|' +
+        'frodo:f:false-true-false|' +
+        'misko:m:false-true-false|' +
+        'shyam:s:false-false-true|');
   });
 
 
