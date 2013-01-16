@@ -597,12 +597,26 @@ describe("angular.scenario.dsl", function() {
 
     describe('Input', function() {
       iit('should change value in text input', inject(function($compile) {
-        element = $compile('<input ng-model="test.input" value="something">')($root)
+        element = $compile('<input ng-model="test.input" value="something">')($root);
         doc.append(element);
         var chain = $root.dsl.input('test.input');
         chain.enter('foo');
         expect(_jQuery('input[ng-model="test.input"]').val()).toEqual('foo');
-        expect($root.test.input).toBe('foo');
+
+        var flag = false;
+        runs(function() {
+          setTimeout(function() {
+            flag = true;
+          }, 500);
+        });
+
+        waitsFor(function() {
+          return flag;
+        });
+
+        runs(function() {
+          expect($root.test.input).toBe('foo');
+        });
       }));
 
       it('should change value in text input in dash form', function() {
