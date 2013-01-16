@@ -269,7 +269,7 @@ describe("angular.scenario.dsl", function() {
         $root.dsl.select('test').options('A', 'B');
         expect($root.futureError).toMatch(/did not match/);
       });
-      
+
       it('should fail to select an option that does not exist', function(){
           doc.append(
               '<select ng-model="test">' +
@@ -596,12 +596,14 @@ describe("angular.scenario.dsl", function() {
     });
 
     describe('Input', function() {
-      it('should change value in text input', function() {
-        doc.append('<input ng-model="test.input" value="something">');
+      iit('should change value in text input', inject(function($compile) {
+        element = $compile('<input ng-model="test.input" value="something">')($root)
+        doc.append(element);
         var chain = $root.dsl.input('test.input');
         chain.enter('foo');
         expect(_jQuery('input[ng-model="test.input"]').val()).toEqual('foo');
-      });
+        expect($root.test.input).toBe('foo');
+      }));
 
       it('should change value in text input in dash form', function() {
         doc.append('<input ng-model="test.input" value="something">');
